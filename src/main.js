@@ -1,6 +1,6 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { createIssue, loadDashboard, loadIssues, loadProjects, login } from './api.js';
+import { createIssue, createListing, loadDashboard, loadDirectory, loadIssues, loadListings, loadProjects, login } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 
 const icon = (name) => ({
@@ -8,7 +8,7 @@ const icon = (name) => ({
 }[name] || '•');
 
 const navigation = [
-  ['home', 'Главная'], ['projects', 'Проекты'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['docs', 'Документы']
+  ['home', 'Главная'], ['projects', 'Проекты'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['docs', 'Документы'], ['more', 'Соседи']
 ];
 
 let active = 'Главная';
@@ -18,6 +18,8 @@ let currentUser = session?.user || null;
 let dashboardData = dashboard;
 let projectData = projects;
 let issueData = issues;
+let directoryData = [];
+let listingData = [];
 let loading = false;
 let loadError = '';
 
@@ -37,10 +39,12 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token)]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token)]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
+    directoryData = serverDirectory;
+    listingData = serverListings;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -98,8 +102,17 @@ function docsView() {
  return layout(`<header class="topbar"><div><p class="eyebrow">Единый источник информации</p><h1>Документы и решения</h1></div></header><div class="docs-grid">${[['Решение №32','Установка второго шлагбаума','15 июня 2026','Решение принято · проект в работе'],['Акт выполненных работ','Мусорная площадка','12 августа 2026','Подписан председателем и подрядчиком'],['Смета','Ремонт Центральной улицы','4 августа 2026','Связана с проектом']].map(d => card(`<article class="doc"><span class="doc-icon">▤</span><div><small>${d[0]}</small><h2>${d[1]}</h2><p>${d[2]}</p><span class="doc-state">${d[3]}</span></div><button class="round-arrow">${icon('arrow')}</button></article>`)).join('')}</div>`);
 }
 
+function neighborsView() {
+  const contacts = profile => [profile.contact.phone, profile.contact.email].filter(Boolean).join(' · ') || 'Контакты скрыты владельцем';
+  return layout(`<header class="topbar"><div><p class="eyebrow">Внутри ${dashboardData.community}</p><h1>Соседи и услуги</h1></div><button class="primary" data-action="listing">${icon('plus')} Разместить объявление</button></header><div class="neighbors-grid"><section><div class="section-heading"><div><h2>Доска объявлений</h2><p>Предлагают и ищут услуги рядом с домом</p></div></div><div class="projects-list">${listingData.length ? listingData.map(listing => card(`<article class="listing-card"><span class="badge ${listing.type === 'OFFER' ? 'green' : 'orange'}">${listing.type === 'OFFER' ? 'Предлагаю' : 'Ищу'}</span><h2>${listing.title}</h2><p>${listing.description}</p><small>${listing.category} · ${listing.author.name}</small><div class="listing-contact">${contacts(listing.author)}</div></article>`)).join('') : card('<p>Пока нет активных объявлений.</p>')}</div></section><section><div class="section-heading"><div><h2>Каталог навыков</h2><p>Только профили, открытые самими жителями</p></div></div><div class="directory-list">${directoryData.length ? directoryData.map(person => card(`<article class="person-card"><span class="avatar">${person.name.split(' ').map(word => word[0]).join('').slice(0, 2)}</span><div><h3>${person.name}</h3><p>${person.streets.join(', ') || 'Улица не указана'}</p><div class="skill-list">${person.skills.map(skill => `<span>${skill}</span>`).join('')}</div><small>${contacts(person)}</small></div></article>`)).join('') : card('<p>Жители пока не открыли публичные профили.</p>')}</div></section></div>`);
+}
+
 function requestModal() {
   return `<div class="modal-backdrop"><section class="modal"><button class="modal-close" data-action="close">${icon('close')}</button><p class="eyebrow">Новая заявка</p><h2>Что случилось?</h2><p>Укажите проблему и место — председатель назначит ответственного.</p><label>Описание<input id="issue-title" placeholder="Например, не работает фонарь" /></label><label>Адрес или улица<input id="issue-address" placeholder="ул. Калинина, участок 18" /></label><label>Комментарий<textarea id="issue-description" placeholder="Добавьте детали, которые помогут решить вопрос"></textarea></label><button class="primary full" data-action="submit-request">Отправить заявку</button></section></div>`;
+}
+
+function listingModal() {
+  return `<div class="modal-backdrop"><section class="modal"><button class="modal-close" data-action="close">${icon('close')}</button><p class="eyebrow">Новое объявление</p><h2>Услуга или запрос</h2><label>Тип<select id="listing-type"><option value="OFFER">Предлагаю услугу</option><option value="REQUEST">Ищу услугу</option></select></label><label>Название<input id="listing-title" placeholder="Например, ищу няню на выходные" /></label><label>Категория<input id="listing-category" placeholder="Дети, ремонт, красота…" /></label><label>Описание<textarea id="listing-description" placeholder="Укажите важные детали"></textarea></label><button class="primary full" data-action="submit-listing">Опубликовать</button></section></div>`;
 }
 
 function projectModal(project) {
@@ -113,7 +126,7 @@ function loginView() {
 
 function render() {
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Документы': docsView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Документы': docsView, 'Соседи': neighborsView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -122,11 +135,17 @@ document.addEventListener('click', async event => {
   if (view) { active = view; modal = null; render(); return; }
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'request') { modal = requestModal(); render(); }
+  if (action === 'listing') { modal = listingModal(); render(); }
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
   if (action === 'reload') { loadApplicationData(); }
   if (action === 'submit-request') {
     try { const issue = await createIssue(session.token, { title: document.querySelector('#issue-title')?.value, address: document.querySelector('#issue-address')?.value, description: document.querySelector('#issue-description')?.value }); issueData.unshift(normalizedIssues([issue])[0]); modal = null; active = 'Заявки'; }
+    catch (error) { loadError = error.message; modal = null; }
+    render();
+  }
+  if (action === 'submit-listing') {
+    try { const listing = await createListing(session.token, { type: document.querySelector('#listing-type')?.value, title: document.querySelector('#listing-title')?.value, category: document.querySelector('#listing-category')?.value, description: document.querySelector('#listing-description')?.value }); listingData.unshift(listing); modal = null; active = 'Соседи'; }
     catch (error) { loadError = error.message; modal = null; }
     render();
   }

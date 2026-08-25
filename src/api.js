@@ -20,3 +20,6 @@ export const loadDashboard = (token, options) => request('/dashboard', { token, 
 export const loadProjects = (token, options) => request('/projects', { token, ...options });
 export const loadIssues = (token, options) => request('/issues', { token, ...options });
 export const createIssue = (token, issue, options) => request('/issues', { token, method: 'POST', body: issue, ...options });
+export const loadDirectory = (token, options) => request('/directory', { token, ...options });
+export const loadListings = (token, options) => request('/listings', { token, ...options });
+export const createListing = (token, listing, options) => request('/listings', { token, method: 'POST', body: listing, ...options });

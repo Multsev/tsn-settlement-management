@@ -13,6 +13,8 @@ enum IssueStatus { NEW ACCEPTED PLANNED IN_PROGRESS WAITING_CONTRACTOR COMPLETED
 enum ChargeStatus { OPEN PAID OVERDUE CANCELLED }
 enum ProposalStatus { SUBMITTED REVIEW VOTING APPROVED REJECTED CONVERTED }
 enum VoteChoice { SUPPORT OPPOSE }
+enum ListingType { OFFER REQUEST }
+enum ListingStatus { ACTIVE CLOSED ARCHIVED }
 
 model Community {
   id           String       @id @default(cuid())
@@ -28,6 +30,8 @@ model Community {
   auditLogs    AuditLog[]
   proposals    Proposal[]
   polls        Poll[]
+  skills       Skill[]
+  listings     Listing[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -57,7 +61,47 @@ model Membership {
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   properties  Property[]
   votes       Vote[]
+  skills      MemberSkill[]
+  listings    Listing[]
+  publicProfile Boolean @default(false)
+  publicPhone   Boolean @default(false)
+  publicEmail   Boolean @default(false)
+  contactPhone  String?
   @@unique([userId, communityId])
+}
+
+model Skill {
+  id          String        @id @default(cuid())
+  communityId String
+  name        String
+  normalized  String
+  community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  members     MemberSkill[]
+  @@unique([communityId, normalized])
+}
+
+model MemberSkill {
+  membershipId String
+  skillId      String
+  isPublic     Boolean    @default(true)
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  skill        Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  @@id([membershipId, skillId])
+}
+
+model Listing {
+  id           String        @id @default(cuid())
+  communityId  String
+  membershipId String
+  type         ListingType
+  status       ListingStatus @default(ACTIVE)
+  title        String
+  description  String
+  category     String
+  community    Community    @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Property {
