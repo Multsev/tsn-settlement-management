@@ -85,3 +85,10 @@ export const loadManagementReports = (token, options) => request('/management-da
 export const createManagementReport = (token, data, options) => request('/management-dashboard/reports', { token, method: 'POST', body: data, ...options });
 export const searchCommunity = (token, query, options) => request(`/search?q=${encodeURIComponent(query)}`, { token, ...options });
 export const loadAuditLog = (token, filters = {}, options) => { const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value)).toString(); return request(`/audit-log${query ? `?${query}` : ''}`, { token, ...options }); };
+export const loadWaste = (token, options) => request('/waste', { token, ...options });
+export const updateWasteRule = (token, category, data, options) => request(`/waste/rules/${category}`, { token, method: 'PUT', body: data, ...options });
+export const createWasteSite = (token, data, options) => request('/waste/sites', { token, method: 'POST', body: data, ...options });
+export const createWasteSchedule = (token, data, options) => request('/waste/schedules', { token, method: 'POST', body: data, ...options });
+export const updateWasteSchedule = (token, scheduleId, data, options) => request(`/waste/schedules/${scheduleId}`, { token, method: 'PATCH', body: data, ...options });
+export const createPickupRequest = (token, data, options) => request('/waste/pickup-requests', { token, method: 'POST', body: data, ...options });
+export const updatePickupRequest = (token, requestId, data, options) => request(`/waste/pickup-requests/${requestId}`, { token, method: 'PATCH', body: data, ...options });

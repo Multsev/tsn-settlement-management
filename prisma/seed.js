@@ -62,6 +62,16 @@ async function main() {
   await database.surveyOption.upsert({ where: { id: 'demo-survey-playground' }, update: {}, create: { id: 'demo-survey-playground', surveyId: survey.id, label: 'Детская площадка', sortOrder: 2 } });
   await database.surveyResponse.upsert({ where: { surveyId_membershipId: { surveyId: survey.id, membershipId: membership.id } }, update: { optionId: cameraOption.id }, create: { surveyId: survey.id, optionId: cameraOption.id, membershipId: membership.id } });
   await database.managementReport.upsert({ where: { id: 'demo-management-report' }, update: {}, create: { id: 'demo-management-report', communityId: community.id, generatedById: chairman.id, title: 'Отчет правления за июль 2026', periodStart: new Date('2026-07-01'), periodEnd: new Date('2026-07-31'), content: { attention: { newIssues: 1, staleProjects: 0, overdueTasks: 0 }, finances: { collectionRate: 82, balance: 310000, debt: 480000, reserved: 310000 }, projects: { active: 4, overdue: 0, completedThisMonth: 1 }, risks: [] } } });
+  const wasteRuleData = [
+    ['HOUSEHOLD', 'Бытовые отходы', 'Складывайте бытовой мусор в закрытые контейнеры на площадке.'],
+    ['GREEN', 'Трава и ветки', 'Не оставляйте зеленые отходы у бытовых контейнеров; используйте сезонный вывоз.'],
+    ['CONSTRUCTION', 'Строительные отходы', 'Строительный мусор вывозит собственник через лицензированного подрядчика.'],
+    ['BULKY', 'Крупногабаритные отходы', 'Закажите отдельный вывоз через заявку в приложении.']
+  ];
+  for (const [category, title, content] of wasteRuleData) await database.wasteRule.upsert({ where: { communityId_category: { communityId: community.id, category } }, update: { title, content }, create: { communityId: community.id, category, title, content } });
+  const wasteSite = await database.wasteSite.upsert({ where: { id: 'demo-waste-site' }, update: { status: 'Работает' }, create: { id: 'demo-waste-site', communityId: community.id, title: 'Площадка у технического въезда', address: 'Техническая дорога, северный въезд', status: 'Работает', capacity: 4, latitude: 45.2401, longitude: 38.9792 } });
+  await database.wasteSchedule.upsert({ where: { id: 'demo-waste-schedule' }, update: {}, create: { id: 'demo-waste-schedule', communityId: community.id, siteId: wasteSite.id, category: 'HOUSEHOLD', scheduledAt: new Date('2026-08-28T08:00:00+03:00'), contractor: 'ООО «Чистый край»', note: 'Плановый вывоз четырех контейнеров.' } });
+  await database.extraPickupRequest.upsert({ where: { id: 'demo-pickup-request' }, update: {}, create: { id: 'demo-pickup-request', communityId: community.id, membershipId: membership.id, category: 'BULKY', address: 'ул. Калинина, участок 157', note: 'Старая мебель после ремонта.', preferredAt: new Date('2026-08-30') } });
   console.log('Demo resident: alexander@example.test / ChangeMe123!');
   console.log('Demo chairman: chairman@example.test / ChangeMe123!');
 }

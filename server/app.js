@@ -25,6 +25,7 @@ import { surveysRouter } from './routes/surveys.js';
 import { managementDashboardRouter } from './routes/management-dashboard.js';
 import { searchRouter } from './routes/search.js';
 import { auditLogRouter } from './routes/audit-log.js';
+import { wasteRouter } from './routes/waste.js';
 import { requireMembership } from './middleware/authentication.js';
 import { config } from './config.js';
 
@@ -57,6 +58,7 @@ app.use('/api/surveys', requireMembership, surveysRouter);
 app.use('/api/management-dashboard', requireMembership, managementDashboardRouter);
 app.use('/api/search', requireMembership, searchRouter);
 app.use('/api/audit-log', requireMembership, auditLogRouter);
+app.use('/api/waste', requireMembership, wasteRouter);
 app.use('/api/streets', requireMembership, streetsRouter);
 app.use('/api/properties', requireMembership, propertiesRouter);
 app.use('/api/profile', requireMembership, profileRouter);

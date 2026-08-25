@@ -171,6 +171,28 @@ enum SurveyStatus {
   CLOSED
 }
 
+enum WasteCategory {
+  HOUSEHOLD
+  GREEN
+  CONSTRUCTION
+  BULKY
+}
+
+enum WasteScheduleStatus {
+  SCHEDULED
+  DELAYED
+  COMPLETED
+  CANCELLED
+}
+
+enum PickupRequestStatus {
+  PENDING
+  APPROVED
+  SCHEDULED
+  COMPLETED
+  REJECTED
+}
+
 enum FundraiserStatus {
   ACTIVE
   COMPLETED
@@ -208,6 +230,10 @@ model Community {
   mapFeatures             MapFeature[]
   surveys                 Survey[]
   managementReports       ManagementReport[]
+  wasteRules              WasteRule[]
+  wasteSites              WasteSite[]
+  wasteSchedules          WasteSchedule[]
+  pickupRequests          ExtraPickupRequest[]
   fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
   createdAt               DateTime                 @default(now())
@@ -305,6 +331,7 @@ model Membership {
   emailNotifications      Boolean                  @default(true)
   notifications           Notification[]
   surveyResponses         SurveyResponse[]
+  pickupRequests          ExtraPickupRequest[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @default(now()) @updatedAt
 
@@ -761,6 +788,69 @@ model ManagementReport {
   createdAt     DateTime  @default(now())
 
   @@index([communityId, createdAt])
+}
+
+model WasteRule {
+  id          String        @id @default(cuid())
+  communityId String
+  category    WasteCategory
+  title       String
+  content     String
+  community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([communityId, category])
+}
+
+model WasteSite {
+  id          String          @id @default(cuid())
+  communityId String
+  title       String
+  address     String
+  status      String
+  capacity    Int?
+  latitude    Float?
+  longitude   Float?
+  community   Community       @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  schedules   WasteSchedule[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model WasteSchedule {
+  id          String              @id @default(cuid())
+  communityId String
+  siteId      String?
+  category    WasteCategory
+  scheduledAt DateTime
+  status      WasteScheduleStatus @default(SCHEDULED)
+  contractor  String?
+  note        String?
+  community   Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  site        WasteSite?          @relation(fields: [siteId], references: [id])
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([communityId, scheduledAt])
+}
+
+model ExtraPickupRequest {
+  id           String              @id @default(cuid())
+  communityId  String
+  membershipId String
+  category     WasteCategory
+  address      String
+  note         String?
+  preferredAt  DateTime?
+  status       PickupRequestStatus @default(PENDING)
+  reviewNote   String?
+  community    Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  membership   Membership          @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([communityId, status])
 }
 
 model IssueHistory {
