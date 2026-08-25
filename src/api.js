@@ -24,3 +24,6 @@ export const loadDirectory = (token, options) => request('/directory', { token, 
 export const loadListings = (token, options) => request('/listings', { token, ...options });
 export const createListing = (token, listing, options) => request('/listings', { token, method: 'POST', body: listing, ...options });
 export const loadCommunityInfo = (token, options) => request('/community-info', { token, ...options });
+export const loadProposals = (token, options) => request('/proposals', { token, ...options });
+export const openVote = (token, proposalId, settings, options) => request(`/proposals/${proposalId}/open-vote`, { token, method: 'POST', body: settings, ...options });
+export const createProjectFromProposal = (token, proposalId, settings, options) => request(`/projects/from-proposal/${proposalId}`, { token, method: 'POST', body: settings, ...options });

@@ -1,6 +1,6 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { createIssue, createListing, loadCommunityInfo, loadDashboard, loadDirectory, loadIssues, loadListings, loadProjects, login } from './api.js';
+import { createIssue, createListing, createProjectFromProposal, loadCommunityInfo, loadDashboard, loadDirectory, loadIssues, loadListings, loadProjects, loadProposals, login, openVote } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 
 const icon = (name) => ({
@@ -22,6 +22,8 @@ let directoryData = [];
 let listingData = [];
 let directoryFilter = '';
 let communityInfo = { community: {}, contacts: [], articles: [], documents: [] };
+let proposalData = [];
+const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
 let loading = false;
 let loadError = '';
 
@@ -41,13 +43,14 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token)]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token)]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
     directoryData = serverDirectory;
     listingData = serverListings;
     communityInfo = serverInfo;
+    proposalData = serverProposals;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -59,7 +62,7 @@ function layout(content) {
     <aside class="sidebar">
       <a class="brand" href="#"><span class="brand-mark">⌁</span><span>прозор</span></a>
       <div class="community-switch"><span class="community-dot"></span><div><small>Мой поселок</small><strong>${dashboardData.community}</strong></div><span>⌄</span></div>
-      <nav>${navigation.map(([key, label]) => `<button class="nav-item ${active === label ? 'active' : ''}" data-view="${label}"><span>${icon(key)}</span>${label}</button>`).join('')}</nav>
+      <nav>${[...navigation, ...(managesCommunity() ? [['more', 'Управление']] : [])].map(([key, label]) => `<button class="nav-item ${active === label ? 'active' : ''}" data-view="${label}"><span>${icon(key)}</span>${label}</button>`).join('')}</nav>
       <div class="side-bottom"><button class="nav-item"><span>?</span> Помощь</button><button class="profile profile-button" data-action="logout"><span class="avatar">${currentUser?.fullName?.split(' ').map(word => word[0]).join('').slice(0, 2) || 'АС'}</span><div><strong>${currentUser?.fullName || 'Александр С.'}</strong><small>Выйти из аккаунта</small></div><span>⌄</span></button></div>
     </aside>
     <main class="content">${content}</main>
@@ -117,6 +120,11 @@ function aboutView() {
   return layout(`<header class="topbar"><div><p class="eyebrow">Для жителей и новых собственников</p><h1>О поселке</h1></div></header><section class="about-hero"><div><span class="badge green">${communityInfo.community.name || dashboardData.community}</span><h2>${communityInfo.community.address || 'Адрес поселка уточняется у администрации'}</h2><p>Здесь собрана основная информация: куда обращаться, как подключить коммуникации и какие правила действуют в поселке.</p></div></section><div class="about-grid"><section><h2>Полезные контакты</h2><div class="directory-list">${communityInfo.contacts.length ? communityInfo.contacts.map(contact => card(`<article class="contact-card"><strong>${contact.title}</strong><span>${contact.contactName || ''}</span><p>${[contact.phone, contact.email].filter(Boolean).join(' · ') || 'Контакт уточняется'}</p><small>${contact.note || ''}</small></article>`)).join('') : card('<p>Контакты добавит председатель.</p>')}</div></section><section><h2>Начинаю жить в поселке</h2><div class="directory-list">${grouped('ONBOARDING').map(article => card(`<article class="article-card"><h3>${article.title}</h3><p>${article.content}</p></article>`)).join('') || card('<p>Инструкции готовятся.</p>')}</div></section></div><div class="about-grid"><section><h2>Частые вопросы</h2><div class="directory-list">${grouped('FAQ').map(article => card(`<article class="article-card"><h3>${article.title}</h3><p>${article.content}</p></article>`)).join('') || card('<p>Вопросы и ответы скоро появятся.</p>')}</div></section><section><h2>Правила и документы</h2><div class="directory-list">${[...grouped('RULE'), ...communityInfo.documents].map(item => card(`<article class="article-card"><h3>${item.title}</h3><p>${item.content || item.description || 'Открыть документ по ссылке.'}</p>${item.url ? `<a class="text-button" href="${item.url}" target="_blank" rel="noreferrer">Открыть документ ${icon('arrow')}</a>` : ''}</article>`)).join('') || card('<p>Документы готовятся к публикации.</p>')}</div></section></div>`);
 }
 
+function managementView() {
+ const pending = proposalData.filter(p => ['SUBMITTED', 'REVIEW', 'VOTING'].includes(p.status));
+ return layout(`<header class="topbar"><div><p class="eyebrow">Операционная панель</p><h1>Управление поселком</h1></div></header><div class="metric-grid"><div class="metric"><span>Инициативы в работе</span><strong>${pending.length}</strong><small>Требуют решения</small></div><div class="metric"><span>Активные проекты</span><strong>${projectData.length}</strong><small>Статусы и бюджеты</small></div><div class="metric"><span>Новые заявки</span><strong>${issueData.length}</strong><small>Нужен ответственный</small></div></div><h2>Инициативы и голосования</h2><div class="projects-list">${pending.length ? pending.map(p => card(`<article class="project-card"><div><span class="badge orange">${p.status}</span><h2>${p.title}</h2><p>${p.description}</p><div class="project-meta"><span>${p.category}</span><span>${p.preliminaryBudget ? money(p.preliminaryBudget) : 'Бюджет уточняется'}</span></div></div><div class="project-budget">${p.poll ? `<span>Голосование до ${new Date(p.poll.closesAt).toLocaleDateString('ru-RU')}</span><strong>${p.pollResult?.supportVotes || 0} за</strong><button class="text-button" data-action="project-from-proposal" data-proposal="${p.id}">Создать проект ${icon('arrow')}</button>` : `<button class="primary" data-action="open-vote" data-proposal="${p.id}">Открыть голосование</button>`}</div></article>`)).join('') : card('<p>Нет инициатив, требующих внимания.</p>')}</div>`);
+}
+
 function requestModal() {
   return `<div class="modal-backdrop"><section class="modal"><button class="modal-close" data-action="close">${icon('close')}</button><p class="eyebrow">Новая заявка</p><h2>Что случилось?</h2><p>Укажите проблему и место — председатель назначит ответственного.</p><label>Описание<input id="issue-title" placeholder="Например, не работает фонарь" /></label><label>Адрес или улица<input id="issue-address" placeholder="ул. Калинина, участок 18" /></label><label>Комментарий<textarea id="issue-description" placeholder="Добавьте детали, которые помогут решить вопрос"></textarea></label><button class="primary full" data-action="submit-request">Отправить заявку</button></section></div>`;
 }
@@ -136,7 +144,7 @@ function loginView() {
 
 function render() {
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -149,6 +157,8 @@ document.addEventListener('click', async event => {
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
   if (action === 'reload') { loadApplicationData(); }
+  if (action === 'open-vote') { try { await openVote(session.token, event.target.closest('[data-proposal]').dataset.proposal, { closesAt: new Date(Date.now() + 7 * 86400000).toISOString(), quorumPercent: 30, approvalPercent: 60 }); await loadApplicationData(); } catch (error) { loadError = error.message; render(); } }
+  if (action === 'project-from-proposal') { try { await createProjectFromProposal(session.token, event.target.closest('[data-proposal]').dataset.proposal, {}); await loadApplicationData(); } catch (error) { loadError = error.message; render(); } }
   if (action === 'submit-request') {
     try { const issue = await createIssue(session.token, { title: document.querySelector('#issue-title')?.value, address: document.querySelector('#issue-address')?.value, description: document.querySelector('#issue-description')?.value }); issueData.unshift(normalizedIssues([issue])[0]); modal = null; active = 'Заявки'; }
     catch (error) { loadError = error.message; modal = null; }
