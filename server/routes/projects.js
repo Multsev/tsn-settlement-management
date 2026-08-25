@@ -4,6 +4,7 @@ import { database } from '../database.js';
 import { allowRoles } from '../middleware/authentication.js';
 import { canTransitionProject, canTransitionTask, projectAttention, roadmapGroups, taskProgress, validateProjectCompletion } from '../services/project-workflow.js';
 import { calculatePollResult } from '../services/voting-rules.js';
+import { notifyCommunity } from '../services/notification-delivery.js';
 
 export const projectsRouter = Router();
 const projectWorkerRoles = ['assistant_chairman', 'board_member', 'chairman', 'administrator'];
@@ -100,6 +101,7 @@ projectsRouter.post('/:projectId/updates', allowRoles(...projectWorkerRoles), as
       return created;
     });
     await audit({ communityId: request.membership.communityId, actorId: request.membership.userId, action: 'published_update', entityType: 'Project', entityId: project.id, after: update });
+    await notifyCommunity({ communityId: request.membership.communityId, kind: 'PROJECT_UPDATE', title: `Обновление проекта: ${project.title}`, body: update.message, projectId: project.id });
     response.status(201).json(update);
   } catch (error) { next(error); }
 });

@@ -57,3 +57,13 @@ export const loadContractors = (token, options) => request('/contractors', { tok
 export const createContractor = (token, data, options) => request('/contractors', { token, method: 'POST', body: data, ...options });
 export const updateContractor = (token, contractorId, data, options) => request(`/contractors/${contractorId}`, { token, method: 'PATCH', body: data, ...options });
 export const linkContractorProject = (token, contractorId, data, options) => request(`/contractors/${contractorId}/projects`, { token, method: 'POST', body: data, ...options });
+export const loadAnnouncements = (token, all = false, options) => request(`/announcements${all ? '?all=1' : ''}`, { token, ...options });
+export const createAnnouncement = (token, data, options) => request('/announcements', { token, method: 'POST', body: data, ...options });
+export const loadNotifications = (token, options) => request('/notifications', { token, ...options });
+export const loadNotificationPreferences = (token, options) => request('/notifications/preferences', { token, ...options });
+export const updateNotificationPreferences = (token, data, options) => request('/notifications/preferences', { token, method: 'PUT', body: data, ...options });
+export const readNotification = (token, notificationId, options) => request(`/notifications/${notificationId}/read`, { token, method: 'PATCH', ...options });
+export const readAllNotifications = (token, options) => request('/notifications/read-all', { token, method: 'PATCH', ...options });
+export const loadDigests = (token, options) => request('/digests', { token, ...options });
+export const generateDigest = (token, options) => request('/digests/generate', { token, method: 'POST', body: {}, ...options });
+export const publishDigest = (token, digestId, options) => request(`/digests/${digestId}/publish`, { token, method: 'POST', body: {}, ...options });

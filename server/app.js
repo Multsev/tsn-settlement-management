@@ -15,6 +15,9 @@ import { streetsRouter } from './routes/streets.js';
 import { contractorsRouter } from './routes/contractors.js';
 import { decisionsRouter } from './routes/decisions.js';
 import { documentsRouter } from './routes/documents.js';
+import { announcementsRouter } from './routes/announcements.js';
+import { digestsRouter } from './routes/digests.js';
+import { notificationsRouter } from './routes/notifications.js';
 import { requireMembership } from './middleware/authentication.js';
 import { config } from './config.js';
 
@@ -23,7 +26,7 @@ app.use(express.json());
 app.use((request, response, next) => {
   if (request.headers.origin === config.webOrigin) response.setHeader('Access-Control-Allow-Origin', config.webOrigin);
   response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
   if (request.method === 'OPTIONS') return response.sendStatus(204);
   next();
 });
@@ -37,6 +40,9 @@ app.use('/api/issues', requireMembership, issuesRouter);
 app.use('/api/decisions', requireMembership, decisionsRouter);
 app.use('/api/documents', requireMembership, documentsRouter);
 app.use('/api/contractors', requireMembership, contractorsRouter);
+app.use('/api/announcements', requireMembership, announcementsRouter);
+app.use('/api/notifications', requireMembership, notificationsRouter);
+app.use('/api/digests', requireMembership, digestsRouter);
 app.use('/api/streets', requireMembership, streetsRouter);
 app.use('/api/properties', requireMembership, propertiesRouter);
 app.use('/api/profile', requireMembership, profileRouter);

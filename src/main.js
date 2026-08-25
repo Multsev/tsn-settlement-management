@@ -1,18 +1,19 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { addProjectUpdate, contributeToFundraiser, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProjectTask, createProperty, createStreet, linkContractorProject, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDirectory, loadDocuments, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, login, openVote, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateContractor, updateDecision, updateIssue, updateProject, updateProjectTask } from './api.js';
+import { addProjectUpdate, contributeToFundraiser, createAnnouncement, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProjectTask, createProperty, createStreet, generateDigest, linkContractorProject, loadAnnouncements, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDigests, loadDirectory, loadDocuments, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadNotificationPreferences, loadNotifications, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, login, openVote, publishDigest, readAllNotifications, readNotification, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateContractor, updateDecision, updateIssue, updateNotificationPreferences, updateProject, updateProjectTask } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 import { financeAdminContent, financeResidentContent } from './finance-views.js';
 import { issueManagementContent, streetsContent } from './community-operations-views.js';
 import { projectDetail, projectOperationsContent, projectPriorityLabels, projectStatusLabels, roadmapContent } from './project-views.js';
 import { contractorsContent, governanceContent, governanceModal } from './governance-views.js';
+import { communicationsContent, communicationsModal, notificationsContent } from './communications-views.js';
 
 const icon = (name) => ({
   home: '⌂', projects: '◫', finance: '₽', requests: '◌', docs: '▤', more: '•••', bell: '♧', arrow: '→', close: '×', plus: '+'
 }[name] || '•');
 
 const navigation = [
-  ['home', 'Главная'], ['projects', 'Проекты'], ['more', 'Дорожная карта'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Подрядчики'], ['more', 'Соседи'], ['more', 'О поселке']
+  ['home', 'Главная'], ['projects', 'Проекты'], ['more', 'Дорожная карта'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['bell', 'Объявления'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Подрядчики'], ['more', 'Соседи'], ['more', 'О поселке']
 ];
 
 let active = 'Главная';
@@ -37,6 +38,10 @@ let projectAttentionData = [];
 let decisionData = [];
 let documentData = [];
 let contractorData = [];
+let announcementData = [];
+let digestData = [];
+let notificationData = { unread: 0, items: [] };
+let notificationPreferences = { notificationLevel: 'ONLY_IMPORTANT', inAppNotifications: true, emailNotifications: true };
 let expenseFilter = '';
 const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
 const worksWithProjects = () => ['assistant_chairman', 'board_member', 'chairman', 'administrator'].includes(session?.role);
@@ -60,8 +65,8 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention, serverDecisions, serverDocuments, serverContractors] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([]), loadDecisions(session.token), loadDocuments(session.token), loadContractors(session.token)]);
-    dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention, serverDecisions, serverDocuments, serverContractors, serverAnnouncements, serverDigests, serverNotifications, serverNotificationPreferences] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([]), loadDecisions(session.token), loadDocuments(session.token), loadContractors(session.token), loadAnnouncements(session.token, managesCommunity()), loadDigests(session.token), loadNotifications(session.token), loadNotificationPreferences(session.token)]);
+    dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects), announcements: serverDashboard.announcements, unreadNotifications: serverDashboard.unreadNotifications, latestDigest: serverDashboard.latestDigest };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
     directoryData = serverDirectory;
@@ -78,6 +83,10 @@ async function loadApplicationData() {
     decisionData = serverDecisions;
     documentData = serverDocuments;
     contractorData = serverContractors;
+    announcementData = serverAnnouncements;
+    digestData = serverDigests;
+    notificationData = serverNotifications;
+    notificationPreferences = serverNotificationPreferences;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -101,15 +110,17 @@ const card = (content, className = '') => `<section class="card ${className}">${
 const formatDate = () => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date());
 
 function dashboardView() {
+  const announcement = dashboardData.announcements?.[0];
+  const digestResults = dashboardData.latestDigest?.content?.results || dashboard.results;
   return layout(`
-    <header class="topbar"><div><p class="eyebrow">${formatDate()} · Добрый день, ${dashboardData.user}</p><h1>Что происходит в поселке</h1></div><div class="top-actions"><button class="icon-button" aria-label="Уведомления">${icon('bell')}<i></i></button><button class="primary" data-action="request">${icon('plus')} Новая заявка</button></div></header>
-    ${card(`<div class="notice-icon">!</div><div><strong>Важное объявление</strong><p>27 августа с 10:00 до 15:00 будет перекрыта техническая дорога.</p></div><button class="text-button" data-view="Документы">Подробнее ${icon('arrow')}</button>`, 'notice')}
+    <header class="topbar"><div><p class="eyebrow">${formatDate()} · Добрый день, ${dashboardData.user}</p><h1>Что происходит в поселке</h1></div><div class="top-actions"><button class="icon-button" data-view="Уведомления" aria-label="Уведомления">${icon('bell')}${dashboardData.unreadNotifications ? '<i></i>' : ''}</button><button class="primary" data-action="request">${icon('plus')} Новая заявка</button></div></header>
+    ${announcement ? card(`<div class="notice-icon">!</div><div><strong>${announcement.title}</strong><p>${announcement.content}</p></div><button class="text-button" data-view="Объявления">Все объявления ${icon('arrow')}</button>`, 'notice') : ''}
     <div class="dashboard-grid">
       <div class="main-column">
         <div class="section-heading"><div><h2>Сейчас</h2><p>Главное о работах и планах</p></div><button class="text-button" data-view="Проекты">Все проекты ${icon('arrow')}</button></div>
         <div class="project-stack">${dashboardData.projects.map(item => card(`<div class="project-row"><div class="status-icon orange">${item.progress ? '↗' : '◌'}</div><div class="project-info"><div class="project-title"><h3>${item.title}</h3><span class="badge orange">${item.status || item.tag}</span></div><div class="progress-line"><span style="width:${item.progress}%"></span></div><p>Готовность ${item.progress}% <em>· ${item.deadline || item.date}</em></p></div><button class="round-arrow" data-project="${item.id || item.title}">${icon('arrow')}</button></div>`)).join('')}</div>
-        <div class="section-heading results-heading"><div><h2>Последние результаты</h2><p>Сделано за последнюю неделю</p></div><button class="text-button">Весь дайджест ${icon('arrow')}</button></div>
-        ${card(`<ul class="result-list">${dashboard.results.map(r => `<li><span>✓</span>${r}</li>`).join('')}</ul>`)}
+        <div class="section-heading results-heading"><div><h2>Последние результаты</h2><p>Сделано за последнюю неделю</p></div><button class="text-button" data-view="Объявления">Весь дайджест ${icon('arrow')}</button></div>
+        ${card(`<ul class="result-list">${digestResults.map(r => `<li><span>✓</span>${r}</li>`).join('')}</ul>`)}
       </div>
       <aside class="right-column">
         ${card(`<div class="section-heading compact"><div><h2>Ваши действия</h2><p>2 действия ждут вас</p></div></div><div class="action-list">${dashboard.actions.map(a => `<div class="action-item"><span class="action-symbol">${a.icon}</span><div><strong>${a.title}</strong><small>${a.text}</small></div><button class="small-button" data-action="${a.title === 'Оплатить взнос' ? 'pay' : 'vote'}">${a.action}</button></div>`).join('')}</div>`, 'actions-card')}
@@ -129,6 +140,14 @@ function roadmapView() {
 
 function financeView() {
   return layout(`<header class="topbar"><div><p class="eyebrow">Прозрачный учет</p><h1>Финансы</h1></div></header>${financeResidentContent({ money, totals: financeOverview.totals, my: myFinances, fundraisers: financeOverview.fundraisers })}${managesCommunity() ? financeAdminContent({ money, totals: financeOverview.totals, expenses: financeOverview.expenses, expenseFilter }) : ''}`);
+}
+
+function communicationsView() {
+  return layout(communicationsContent({ announcements: announcementData, digests: digestData, canManage: managesCommunity(), card, money }));
+}
+
+function notificationsView() {
+  return layout(notificationsContent({ notifications: notificationData, preferences: notificationPreferences, card }));
 }
 
 function requestsView() {
@@ -208,7 +227,7 @@ function loginView() {
 
 function render() {
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Финансы': financeView, 'Заявки': requestsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Подрядчики': contractorsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Финансы': financeView, 'Заявки': requestsView, 'Объявления': communicationsView, 'Уведомления': notificationsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Подрядчики': contractorsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -230,6 +249,8 @@ document.addEventListener('click', async event => {
   if (action === 'new-contractor') { modal = governanceModal('contractor', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses }); render(); }
   if (action === 'edit-contractor') { modal = governanceModal('contractor-edit', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses, contractorId: event.target.closest('[data-contractor-id]').dataset.contractorId }); render(); }
   if (action === 'link-contractor') { modal = governanceModal('contractor-link', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses, contractorId: event.target.closest('[data-contractor-id]').dataset.contractorId }); render(); }
+  if (action === 'new-announcement') { modal = communicationsModal('announcement', notificationPreferences); render(); }
+  if (action === 'notification-preferences') { modal = communicationsModal('preferences', notificationPreferences); render(); }
   if (action?.startsWith('finance-') && !action.startsWith('submit-')) { modal = financeModal(action.replace('finance-', '')); render(); }
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
@@ -307,6 +328,34 @@ document.addEventListener('click', async event => {
     const amountValue = document.querySelector('#contract-amount').value;
     try { await linkContractorProject(session.token, event.target.closest('[data-contractor-id]').dataset.contractorId, { projectId: document.querySelector('#contract-project').value, role: document.querySelector('#contract-role').value, contractNumber: document.querySelector('#contract-number').value, contractAmount: amountValue === '' ? null : Number(amountValue), warrantyUntil: document.querySelector('#contract-warranty').value || null }); modal = null; active = 'Подрядчики'; await loadApplicationData(); }
     catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-announcement') {
+    try {
+      await createAnnouncement(session.token, { title: document.querySelector('#announcement-title').value, content: document.querySelector('#announcement-content').value, priority: document.querySelector('#announcement-priority').value, startsAt: document.querySelector('#announcement-start').value || null, expiresAt: document.querySelector('#announcement-expires').value || null, published: true });
+      modal = null; active = 'Объявления'; await loadApplicationData();
+    } catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'generate-digest') {
+    try { await generateDigest(session.token); active = 'Объявления'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; render(); }
+  }
+  if (action === 'publish-digest') {
+    try { await publishDigest(session.token, event.target.closest('[data-digest-id]').dataset.digestId); active = 'Объявления'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; render(); }
+  }
+  if (action === 'read-notification') {
+    try { await readNotification(session.token, event.target.closest('[data-notification-id]').dataset.notificationId); active = 'Уведомления'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; render(); }
+  }
+  if (action === 'read-all-notifications') {
+    try { await readAllNotifications(session.token); active = 'Уведомления'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; render(); }
+  }
+  if (action === 'submit-notification-preferences') {
+    try {
+      await updateNotificationPreferences(session.token, { notificationLevel: document.querySelector('#notification-level').value, inAppNotifications: document.querySelector('#notification-in-app').checked, emailNotifications: document.querySelector('#notification-email').checked });
+      modal = null; active = 'Уведомления'; await loadApplicationData();
+    } catch (error) { loadError = error.message; modal = null; render(); }
   }
   if (action === 'submit-listing') {
     try { const listing = await createListing(session.token, { type: document.querySelector('#listing-type')?.value, title: document.querySelector('#listing-title')?.value, category: document.querySelector('#listing-category')?.value, description: document.querySelector('#listing-description')?.value }); listingData.unshift(listing); modal = null; active = 'Соседи'; }

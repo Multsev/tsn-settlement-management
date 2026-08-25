@@ -124,6 +124,36 @@ enum DecisionStatus {
   CANCELLED
 }
 
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  EMERGENCY
+}
+
+enum NotificationLevel {
+  ONLY_IMPORTANT
+  IMPORTANT_AND_PROJECTS
+  ALL
+}
+
+enum NotificationKind {
+  ANNOUNCEMENT
+  PROJECT_UPDATE
+  DIGEST
+  ACTION_REQUIRED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum DigestStatus {
+  DRAFT
+  PUBLISHED
+}
+
 enum FundraiserStatus {
   ACTIVE
   COMPLETED
@@ -154,6 +184,9 @@ model Community {
   documents               CommunityDocument[]
   decisions               Decision[]
   contractors             Contractor[]
+  announcements           Announcement[]
+  notifications           Notification[]
+  weeklyDigests           WeeklyDigest[]
   fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
   createdAt               DateTime                 @default(now())
@@ -243,6 +276,10 @@ model Membership {
   publicPhone             Boolean                  @default(false)
   publicEmail             Boolean                  @default(false)
   contactPhone            String?
+  notificationLevel       NotificationLevel        @default(ONLY_IMPORTANT)
+  inAppNotifications      Boolean                  @default(true)
+  emailNotifications      Boolean                  @default(true)
+  notifications           Notification[]
 
   @@unique([userId, communityId])
 }
@@ -364,12 +401,84 @@ model Project {
   documents       CommunityDocument[]
   decisions       Decision[]
   contractorLinks ProjectContractor[]
+  notifications   Notification[]
   expenses        Expense[]
   fundraisers     Fundraiser[]
   proposal        Proposal?           @relation(fields: [proposalId], references: [id])
   proposalId      String?             @unique
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+}
+
+model Announcement {
+  id            String               @id @default(cuid())
+  communityId   String
+  authorId      String
+  title         String
+  content       String
+  priority      AnnouncementPriority @default(NORMAL)
+  startsAt      DateTime             @default(now())
+  expiresAt     DateTime?
+  published     Boolean              @default(true)
+  notifiedAt    DateTime?
+  community     Community            @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([communityId, published, startsAt])
+}
+
+model WeeklyDigest {
+  id            String         @id @default(cuid())
+  communityId   String
+  weekStart     DateTime
+  weekEnd       DateTime
+  title         String
+  content       Json
+  status        DigestStatus   @default(DRAFT)
+  publishedAt   DateTime?
+  community     Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([communityId, weekStart])
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  communityId    String
+  membershipId   String
+  announcementId String?
+  projectId      String?
+  digestId       String?
+  kind           NotificationKind
+  title          String
+  body           String
+  readAt         DateTime?
+  community      Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  membership     Membership       @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  announcement   Announcement?    @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  project        Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  digest         WeeklyDigest?    @relation(fields: [digestId], references: [id], onDelete: Cascade)
+  emailDelivery  EmailDelivery?
+  createdAt      DateTime         @default(now())
+
+  @@index([membershipId, readAt, createdAt])
+}
+
+model EmailDelivery {
+  id             String         @id @default(cuid())
+  notificationId String         @unique
+  recipient      String
+  status         DeliveryStatus @default(PENDING)
+  attempts       Int            @default(0)
+  lastError      String?
+  sentAt         DateTime?
+  notification   Notification   @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 model Proposal {

@@ -3,7 +3,9 @@ import 'dotenv/config';
 export const config = {
   port: Number(process.env.PORT || 3000),
   jwtSecret: process.env.JWT_SECRET || 'development-only-secret-change-me',
-  webOrigin: process.env.WEB_ORIGIN || 'http://localhost:5173'
+  webOrigin: process.env.WEB_ORIGIN || 'http://localhost:5173',
+  emailWebhookUrl: process.env.EMAIL_WEBHOOK_URL || '',
+  emailWebhookToken: process.env.EMAIL_WEBHOOK_TOKEN || ''
 };
 
 export function assertProductionConfig() {
