@@ -76,3 +76,7 @@ export const acceptInvitation = (data, options) => request('/auth/accept-invitat
 export const loadMap = (token, options) => request('/map', { token, ...options });
 export const createMapFeature = (token, data, options) => request('/map/features', { token, method: 'POST', body: data, ...options });
 export const updateMapLocation = (token, entity, id, data, options) => request(`/map/locations/${entity}/${id}`, { token, method: 'PATCH', body: data, ...options });
+export const loadSurveys = (token, options) => request('/surveys', { token, ...options });
+export const createSurvey = (token, data, options) => request('/surveys', { token, method: 'POST', body: data, ...options });
+export const updateSurveyStatus = (token, surveyId, status, options) => request(`/surveys/${surveyId}/status`, { token, method: 'PATCH', body: { status }, ...options });
+export const respondToSurvey = (token, surveyId, optionId, options) => request(`/surveys/${surveyId}/response`, { token, method: 'PUT', body: { optionId }, ...options });

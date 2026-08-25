@@ -165,6 +165,12 @@ enum MapFeatureType {
   OTHER
 }
 
+enum SurveyStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
 enum FundraiserStatus {
   ACTIVE
   COMPLETED
@@ -200,6 +206,7 @@ model Community {
   weeklyDigests           WeeklyDigest[]
   invitations             MembershipInvitation[]
   mapFeatures             MapFeature[]
+  surveys                 Survey[]
   fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
   createdAt               DateTime                 @default(now())
@@ -295,6 +302,7 @@ model Membership {
   inAppNotifications      Boolean                  @default(true)
   emailNotifications      Boolean                  @default(true)
   notifications           Notification[]
+  surveyResponses         SurveyResponse[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @default(now()) @updatedAt
 
@@ -696,6 +704,46 @@ model MapFeature {
   updatedAt   DateTime       @updatedAt
 
   @@index([communityId, type])
+}
+
+model Survey {
+  id          String           @id @default(cuid())
+  communityId String
+  title       String
+  description String?
+  status      SurveyStatus     @default(DRAFT)
+  opensAt     DateTime?
+  closesAt    DateTime?
+  community   Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  options     SurveyOption[]
+  responses   SurveyResponse[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([communityId, status])
+}
+
+model SurveyOption {
+  id        String           @id @default(cuid())
+  surveyId  String
+  label     String
+  sortOrder Int              @default(0)
+  survey    Survey           @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responses SurveyResponse[]
+}
+
+model SurveyResponse {
+  id           String       @id @default(cuid())
+  surveyId     String
+  optionId     String
+  membershipId String
+  survey       Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  option       SurveyOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([surveyId, membershipId])
 }
 
 model IssueHistory {
