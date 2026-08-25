@@ -1,16 +1,17 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { contributeToFundraiser, createCharge, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProperty, createStreet, loadCommunityInfo, loadDashboard, loadDirectory, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjects, loadProperties, loadProposals, loadStreets, login, openVote, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateIssue } from './api.js';
+import { addProjectUpdate, contributeToFundraiser, createCharge, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProjectTask, createProperty, createStreet, loadCommunityInfo, loadDashboard, loadDirectory, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, login, openVote, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateIssue, updateProject, updateProjectTask } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 import { financeAdminContent, financeResidentContent } from './finance-views.js';
 import { issueManagementContent, streetsContent } from './community-operations-views.js';
+import { projectDetail, projectOperationsContent, projectPriorityLabels, projectStatusLabels, roadmapContent } from './project-views.js';
 
 const icon = (name) => ({
   home: '⌂', projects: '◫', finance: '₽', requests: '◌', docs: '▤', more: '•••', bell: '♧', arrow: '→', close: '×', plus: '+'
 }[name] || '•');
 
 const navigation = [
-  ['home', 'Главная'], ['projects', 'Проекты'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Соседи'], ['more', 'О поселке']
+  ['home', 'Главная'], ['projects', 'Проекты'], ['more', 'Дорожная карта'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Соседи'], ['more', 'О поселке']
 ];
 
 let active = 'Главная';
@@ -30,8 +31,11 @@ let financeOverview = { totals: { balance: 0, received: 0, spent: 0, debt: 0 }, 
 let financeOptions = { memberships: [], projects: [], openCharges: [] };
 let streetData = [];
 let propertyState = { properties: [], accessRequests: [], availableProperties: [] };
+let roadmapData = [];
+let projectAttentionData = [];
 let expenseFilter = '';
 const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
+const worksWithProjects = () => ['assistant_chairman', 'board_member', 'chairman', 'administrator'].includes(session?.role);
 let loading = false;
 let loadError = '';
 
@@ -40,7 +44,7 @@ const issueStatus = { NEW: 'Новая', ACCEPTED: 'Принята', PLANNED: '�
 const dateLabel = (value) => value ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(value)) : 'Срок уточняется';
 
 function normalizedProjects(items) {
-  return items.map(project => ({ ...project, status: projectStatus[project.status] || project.status, deadline: dateLabel(project.deadline), lead: 'Правление поселка', update: project.updates?.[0]?.message || 'Обновлений пока нет' }));
+  return items.map(project => ({ ...project, rawStatus: project.status, rawDeadline: project.deadline, status: projectStatus[project.status] || project.status, deadline: dateLabel(project.deadline), responsible: project.responsible || 'Правление поселка', lead: project.responsible || 'Правление поселка', update: project.updates?.[0]?.message || 'Обновлений пока нет', tasks: project.tasks || [] }));
 }
 
 function normalizedIssues(items) {
@@ -51,7 +55,7 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token)]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([])]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
@@ -64,6 +68,8 @@ async function loadApplicationData() {
     financeOptions = serverFinanceOptions;
     streetData = serverStreets;
     propertyState = serverProperties;
+    roadmapData = serverRoadmap;
+    projectAttentionData = serverProjectAttention;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -106,7 +112,11 @@ function dashboardView() {
 }
 
 function projectsView() {
-  return layout(`<header class="topbar"><div><p class="eyebrow">${dashboardData.community}</p><h1>Проекты поселка</h1></div><button class="primary" data-action="request">${icon('plus')} Сообщить о проблеме</button></header><div class="filter-row"><button class="filter active">Все</button><button class="filter">В работе</button><button class="filter">Планируемые</button><button class="filter">Завершённые</button></div><div class="projects-list">${projectData.map(p => card(`<article class="project-card"><div><span class="badge green">${p.category}</span><span class="project-status">${p.status}</span><h2>${p.title}</h2><p>${p.description}</p><div class="project-meta"><span>◷ ${p.deadline}</span><span>◉ ${p.lead}</span></div></div><div class="project-budget"><span>Бюджет</span><strong>${money(p.budget)}</strong><div class="progress-line"><span style="width:${p.progress}%"></span></div><small>Готовность ${p.progress}%</small><button class="text-button" data-project="${p.id}">Открыть проект ${icon('arrow')}</button></div></article>`)).join('')}</div>`);
+  return layout(`<header class="topbar"><div><p class="eyebrow">${dashboardData.community}</p><h1>Проекты поселка</h1></div><button class="primary" data-view="Дорожная карта">Открыть дорожную карту</button></header><div class="projects-list">${projectData.map(p => card(`<article class="project-card"><div><div class="project-title"><span class="badge green">${p.category}</span><span class="project-status">${p.status}</span>${p.priority && p.priority !== 'NORMAL' ? `<span class="badge orange">${projectPriorityLabels[p.priority]}</span>` : ''}</div><h2>${p.title}</h2><p>${p.description}</p><div class="project-meta"><span>⌖ ${p.street?.name || 'Общая территория'}</span><span>◷ ${p.deadline}</span><span>◉ ${p.lead}</span><span>Задач: ${p.tasks.length}</span></div></div><div class="project-budget"><span>Бюджет</span><strong>${money(p.budget)}</strong><div class="progress-line"><span style="width:${p.progress}%"></span></div><small>Готовность ${p.progress}%</small><button class="text-button" data-project="${p.id}">Открыть проект ${icon('arrow')}</button>${worksWithProjects() ? `<button class="small-button" data-action="new-project-update" data-project-id="${p.id}">Добавить обновление</button><button class="small-button" data-action="new-project-task" data-project-id="${p.id}">Добавить задачу</button>` : ''}</div></article>`)).join('')}</div>`);
+}
+
+function roadmapView() {
+  return layout(roadmapContent({ groups: roadmapData, card, money }));
 }
 
 function financeView() {
@@ -139,7 +149,7 @@ function aboutView() {
 
 function managementView() {
  const pending = proposalData.filter(p => ['SUBMITTED', 'REVIEW', 'VOTING'].includes(p.status));
- return layout(`<header class="topbar"><div><p class="eyebrow">Операционная панель</p><h1>Управление поселком</h1></div></header><div class="metric-grid"><div class="metric"><span>Инициативы в работе</span><strong>${pending.length}</strong><small>Требуют решения</small></div><div class="metric"><span>Активные проекты</span><strong>${projectData.length}</strong><small>Статусы и бюджеты</small></div><div class="metric"><span>Новые заявки</span><strong>${issueData.filter(issue => issue.rawStatus === 'NEW').length}</strong><small>Нужен ответственный</small></div></div>${issueManagementContent({ card, issues: issueData })}<section class="management-section"><h2>Инициативы и голосования</h2><div class="projects-list">${pending.length ? pending.map(p => card(`<article class="project-card"><div><span class="badge orange">${p.status}</span><h2>${p.title}</h2><p>${p.description}</p><div class="project-meta"><span>${p.category}</span><span>${p.preliminaryBudget ? money(p.preliminaryBudget) : 'Бюджет уточняется'}</span></div></div><div class="project-budget">${p.poll ? `<span>Голосование до ${new Date(p.poll.closesAt).toLocaleDateString('ru-RU')}</span><strong>${p.pollResult?.supportVotes || 0} за</strong><button class="text-button" data-action="project-from-proposal" data-proposal="${p.id}">Создать проект ${icon('arrow')}</button>` : `<button class="primary" data-action="open-vote" data-proposal="${p.id}">Открыть голосование</button>`}</div></article>`)).join('') : card('<p>Нет инициатив, требующих внимания.</p>')}</div></section>`);
+ return layout(`<header class="topbar"><div><p class="eyebrow">Операционная панель</p><h1>Управление поселком</h1></div></header><div class="metric-grid"><div class="metric"><span>Инициативы в работе</span><strong>${pending.length}</strong><small>Требуют решения</small></div><div class="metric"><span>Проекты требуют внимания</span><strong>${projectAttentionData.length}</strong><small>Сроки и обновления</small></div><div class="metric"><span>Новые заявки</span><strong>${issueData.filter(issue => issue.rawStatus === 'NEW').length}</strong><small>Нужен ответственный</small></div></div>${projectOperationsContent({ projects: projectData, attention: projectAttentionData, card, money })}${issueManagementContent({ card, issues: issueData })}<section class="management-section"><h2>Инициативы и голосования</h2><div class="projects-list">${pending.length ? pending.map(p => card(`<article class="project-card"><div><span class="badge orange">${p.status}</span><h2>${p.title}</h2><p>${p.description}</p><div class="project-meta"><span>${p.category}</span><span>${p.preliminaryBudget ? money(p.preliminaryBudget) : 'Бюджет уточняется'}</span></div></div><div class="project-budget">${p.poll ? `<span>Голосование до ${new Date(p.poll.closesAt).toLocaleDateString('ru-RU')}</span><strong>${p.pollResult?.supportVotes || 0} за</strong><button class="text-button" data-action="project-from-proposal" data-proposal="${p.id}">Создать проект ${icon('arrow')}</button>` : `<button class="primary" data-action="open-vote" data-proposal="${p.id}">Открыть голосование</button>`}</div></article>`)).join('') : card('<p>Нет инициатив, требующих внимания.</p>')}</div></section>`);
 }
 
 function requestModal() {
@@ -167,9 +177,17 @@ function financeModal(type) {
   return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">Финансовый учет</p><h2>Новый целевой сбор</h2><label>Название<input id="finance-title" /></label><label>Описание<textarea id="finance-description"></textarea></label><label>Проект<select id="finance-project"><option value="">Общий сбор</option>${financeOptions.projects.map(project => `<option value="${project.id}">${project.title}</option>`).join('')}</select></label><label>Цель, ₽<input id="finance-amount" type="number" min="1" /></label><label>Срок<input id="finance-due" type="date" /></label>${submit('Открыть сбор')}</section></div>`;
 }
 
+function projectWorkModal(type, projectId) {
+  const project = projectData.find(item => item.id === projectId);
+  const close = `<button class="modal-close" data-action="close">${icon('close')}</button>`;
+  if (type === 'task') return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">${project.title}</p><h2>Новая задача</h2><label>Название<input id="project-task-title" /></label><label>Описание<textarea id="project-task-description"></textarea></label><label>Исполнитель<input id="project-task-responsible" /></label><label>Срок<input id="project-task-due" type="date" /></label><button class="primary full" data-action="submit-project-task" data-project-id="${project.id}">Добавить задачу</button></section></div>`;
+  if (type === 'update') return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">${project.title}</p><h2>Обновление хода работ</h2><label>Что изменилось<textarea id="project-update-message"></textarea></label><label>Готовность, %<input id="project-update-progress" type="number" min="0" max="100" value="${project.progress}" /></label><label>Ссылка на фотографию<input id="project-update-photo" type="url" placeholder="https://…" /></label><button class="primary full" data-action="submit-project-update" data-project-id="${project.id}">Опубликовать</button></section></div>`;
+  return `<div class="modal-backdrop"><section class="modal wide-modal">${close}<p class="eyebrow">Операционное управление</p><h2>${project.title}</h2><div class="form-grid"><label>Статус<select id="project-status">${Object.entries(projectStatusLabels).map(([value, label]) => `<option value="${value}" ${value === project.rawStatus ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label>Приоритет<select id="project-priority">${Object.entries(projectPriorityLabels).map(([value, label]) => `<option value="${value}" ${value === project.priority ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label>Улица<select id="project-street"><option value="">Общая территория</option>${streetData.map(street => `<option value="${street.id}" ${street.id === project.streetId ? 'selected' : ''}>${street.name}</option>`).join('')}</select></label><label>Ответственный<input id="project-responsible" value="${project.responsible === 'Правление поселка' ? '' : project.responsible}" /></label><label>Дата начала<input id="project-start" type="date" value="${project.startAt ? project.startAt.slice(0, 10) : ''}" /></label><label>Плановый срок<input id="project-deadline" type="date" value="${project.rawDeadline ? project.rawDeadline.slice(0, 10) : ''}" /></label><label>Бюджет, ₽<input id="project-budget" type="number" min="0" value="${project.budget}" /></label><label>Источник финансирования<input id="project-funding" value="${project.fundingSource || ''}" /></label></div><label>Проблема<textarea id="project-problem">${project.problem || ''}</textarea></label><label>Ожидаемый результат<textarea id="project-expected">${project.expectedResult || ''}</textarea></label><label>Комментарий к смене статуса<textarea id="project-comment"></textarea></label><label>Фото до<input id="project-before-photo" type="url" value="${project.beforePhotoUrl || ''}" /></label><label>Результат выполненного проекта<textarea id="project-result">${project.resultNote || ''}</textarea></label><label>Фото после<input id="project-after-photo" type="url" value="${project.afterPhotoUrl || ''}" /></label><button class="primary full" data-action="submit-project-edit" data-project-id="${project.id}">Сохранить проект</button></section></div>`;
+}
+
 function projectModal(project) {
  const p = projectData.find(x => x.id === project || x.title === project) || projectData[0];
- return `<div class="modal-backdrop"><section class="modal project-modal"><button class="modal-close" data-action="close">${icon('close')}</button><span class="badge green">${p.category}</span><h2>${p.title}</h2><p>${p.description}</p><div class="detail-progress"><strong>${p.progress}%</strong><div class="progress-line"><span style="width:${p.progress}%"></span></div><span>готовность</span></div><div class="detail-grid"><div><small>Бюджет</small><strong>${money(p.budget)}</strong></div><div><small>Потрачено</small><strong>${money(p.spent)}</strong></div><div><small>Срок</small><strong>${p.deadline}</strong></div><div><small>Ответственный</small><strong>${p.lead}</strong></div></div><div class="update"><small>Последнее обновление</small><p>${p.update}</p></div></section></div>`;
+ return projectDetail(p, { money, canWork: worksWithProjects() });
 }
 
 function loginView() {
@@ -178,7 +196,7 @@ function loginView() {
 
 function render() {
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Финансы': financeView, 'Заявки': requestsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -191,6 +209,9 @@ document.addEventListener('click', async event => {
   if (action === 'new-street') { modal = operationsModal('street'); render(); }
   if (action === 'new-property') { modal = operationsModal('property'); render(); }
   if (action === 'manage-issue') { modal = operationsModal('issue', event.target.closest('[data-issue-id]').dataset.issueId); render(); }
+  if (action === 'edit-project') { modal = projectWorkModal('edit', event.target.closest('[data-project-id]').dataset.projectId); render(); }
+  if (action === 'new-project-task') { modal = projectWorkModal('task', event.target.closest('[data-project-id]').dataset.projectId); render(); }
+  if (action === 'new-project-update') { modal = projectWorkModal('update', event.target.closest('[data-project-id]').dataset.projectId); render(); }
   if (action?.startsWith('finance-') && !action.startsWith('submit-')) { modal = financeModal(action.replace('finance-', '')); render(); }
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
@@ -221,6 +242,25 @@ document.addEventListener('click', async event => {
   }
   if (action === 'submit-issue-update') {
     try { await updateIssue(session.token, event.target.closest('[data-issue-id]').dataset.issueId, { status: document.querySelector('#issue-status').value, responsible: document.querySelector('#issue-responsible').value, dueAt: document.querySelector('#issue-due').value || null, comment: document.querySelector('#issue-comment').value, resultNote: document.querySelector('#issue-result').value, afterPhotoUrl: document.querySelector('#issue-after-photo').value }); modal = null; active = 'Управление'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-project-edit') {
+    try {
+      await updateProject(session.token, event.target.closest('[data-project-id]').dataset.projectId, { status: document.querySelector('#project-status').value, priority: document.querySelector('#project-priority').value, streetId: document.querySelector('#project-street').value, responsible: document.querySelector('#project-responsible').value, startAt: document.querySelector('#project-start').value || null, deadline: document.querySelector('#project-deadline').value || null, budget: Number(document.querySelector('#project-budget').value), fundingSource: document.querySelector('#project-funding').value, problem: document.querySelector('#project-problem').value, expectedResult: document.querySelector('#project-expected').value, comment: document.querySelector('#project-comment').value, beforePhotoUrl: document.querySelector('#project-before-photo').value, resultNote: document.querySelector('#project-result').value, afterPhotoUrl: document.querySelector('#project-after-photo').value });
+      modal = null; active = 'Управление'; await loadApplicationData();
+    } catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-project-task') {
+    try { await createProjectTask(session.token, event.target.closest('[data-project-id]').dataset.projectId, { title: document.querySelector('#project-task-title').value, description: document.querySelector('#project-task-description').value, responsible: document.querySelector('#project-task-responsible').value, dueAt: document.querySelector('#project-task-due').value || null }); modal = null; active = managesCommunity() ? 'Управление' : 'Проекты'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-project-update') {
+    try { await addProjectUpdate(session.token, event.target.closest('[data-project-id]').dataset.projectId, { message: document.querySelector('#project-update-message').value, progress: Number(document.querySelector('#project-update-progress').value), photoUrl: document.querySelector('#project-update-photo').value }); modal = null; active = 'Проекты'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'advance-task') {
+    const target = event.target.closest('[data-task-id]');
+    try { await updateProjectTask(session.token, target.dataset.projectId, target.dataset.taskId, { status: target.dataset.taskStatus }); modal = null; active = 'Проекты'; await loadApplicationData(); }
     catch (error) { loadError = error.message; modal = null; render(); }
   }
   if (action === 'submit-listing') {

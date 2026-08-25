@@ -18,6 +18,12 @@ export async function request(path, { token, method = 'GET', body, fetcher = fet
 export const login = (credentials, options) => request('/auth/login', { method: 'POST', body: credentials, ...options });
 export const loadDashboard = (token, options) => request('/dashboard', { token, ...options });
 export const loadProjects = (token, options) => request('/projects', { token, ...options });
+export const loadRoadmap = (token, options) => request('/projects/roadmap', { token, ...options });
+export const loadProjectAttention = (token, options) => request('/projects/attention', { token, ...options });
+export const updateProject = (token, projectId, data, options) => request(`/projects/${projectId}`, { token, method: 'PATCH', body: data, ...options });
+export const addProjectUpdate = (token, projectId, data, options) => request(`/projects/${projectId}/updates`, { token, method: 'POST', body: data, ...options });
+export const createProjectTask = (token, projectId, data, options) => request(`/projects/${projectId}/tasks`, { token, method: 'POST', body: data, ...options });
+export const updateProjectTask = (token, projectId, taskId, data, options) => request(`/projects/${projectId}/tasks/${taskId}`, { token, method: 'PATCH', body: data, ...options });
 export const loadIssues = (token, options) => request('/issues', { token, ...options });
 export const createIssue = (token, issue, options) => request('/issues', { token, method: 'POST', body: issue, ...options });
 export const updateIssue = (token, issueId, issue, options) => request(`/issues/${issueId}`, { token, method: 'PATCH', body: issue, ...options });
