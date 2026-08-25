@@ -29,7 +29,7 @@ npm run dev:api
 
 API откроется по `http://localhost:3000`; проверка доступности — `GET /api/health`. Демонстрационный пользователь: `alexander@example.test`, пароль `ChangeMe123!`, идентификатор поселка `novotitarovka`. Эти учетные данные предназначены только для локальной разработки.
 
-Запустите интерфейс в отдельном терминале командой `npm run dev`. Экран входа отправляет данные в API, сохраняет JWT только в `sessionStorage` браузера и загружает dashboard, проекты и заявки из PostgreSQL. При необходимости укажите другой адрес API через `VITE_API_URL`.
+Запустите интерфейс в отдельном терминале командой `npm run dev`. Экран входа отправляет данные в API, сохраняет JWT только в `sessionStorage` браузера и загружает dashboard, проекты и заявки из PostgreSQL. При необходимости укажите другой адрес API через `VITE_API_URL` и разрешите адрес интерфейса переменной `WEB_ORIGIN`.
 
 Авторизация: `POST /api/auth/login` с JSON `{ "email", "password", "communitySlug" }`. Возвращаемый JWT нужно передавать как `Authorization: Bearer <token>` для `/api/dashboard`, `/api/projects` и `/api/issues`.
 

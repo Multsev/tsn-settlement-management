@@ -2,7 +2,8 @@ import 'dotenv/config';
 
 export const config = {
   port: Number(process.env.PORT || 3000),
-  jwtSecret: process.env.JWT_SECRET || 'development-only-secret-change-me'
+  jwtSecret: process.env.JWT_SECRET || 'development-only-secret-change-me',
+  webOrigin: process.env.WEB_ORIGIN || 'http://localhost:5173'
 };
 
 export function assertProductionConfig() {
