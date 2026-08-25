@@ -28,3 +28,10 @@ export const loadProposals = (token, options) => request('/proposals', { token, 
 export const openVote = (token, proposalId, settings, options) => request(`/proposals/${proposalId}/open-vote`, { token, method: 'POST', body: settings, ...options });
 export const createProjectFromProposal = (token, proposalId, settings, options) => request(`/projects/from-proposal/${proposalId}`, { token, method: 'POST', body: settings, ...options });
 export const loadMyFinances = (token, options) => request('/finances/me', { token, ...options });
+export const loadFinanceOverview = (token, options) => request('/finances/overview', { token, ...options });
+export const loadFinanceAdminOptions = (token, options) => request('/finances/admin-options', { token, ...options });
+export const createCharge = (token, data, options) => request('/finances/charges', { token, method: 'POST', body: data, ...options });
+export const recordPayment = (token, data, options) => request('/finances/payments', { token, method: 'POST', body: data, ...options });
+export const createExpense = (token, data, options) => request('/finances/expenses', { token, method: 'POST', body: data, ...options });
+export const createFundraiser = (token, data, options) => request('/finances/fundraisers', { token, method: 'POST', body: data, ...options });
+export const contributeToFundraiser = (token, fundraiserId, amount, options) => request(`/finances/fundraisers/${fundraiserId}/contributions`, { token, method: 'POST', body: { amount }, ...options });

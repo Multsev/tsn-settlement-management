@@ -1,7 +1,8 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { createIssue, createListing, createProjectFromProposal, loadCommunityInfo, loadDashboard, loadDirectory, loadIssues, loadListings, loadProjects, loadProposals, login, openVote } from './api.js';
+import { contributeToFundraiser, createCharge, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, loadCommunityInfo, loadDashboard, loadDirectory, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjects, loadProposals, login, openVote, recordPayment } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
+import { financeAdminContent, financeResidentContent } from './finance-views.js';
 
 const icon = (name) => ({
   home: '⌂', projects: '◫', finance: '₽', requests: '◌', docs: '▤', more: '•••', bell: '♧', arrow: '→', close: '×', plus: '+'
@@ -23,6 +24,10 @@ let listingData = [];
 let directoryFilter = '';
 let communityInfo = { community: {}, contacts: [], articles: [], documents: [] };
 let proposalData = [];
+let myFinances = { charges: [], payments: [] };
+let financeOverview = { totals: { balance: 0, received: 0, spent: 0, debt: 0 }, expenses: [], fundraisers: [] };
+let financeOptions = { memberships: [], projects: [], openCharges: [] };
+let expenseFilter = '';
 const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
 let loading = false;
 let loadError = '';
@@ -43,7 +48,7 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token)]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions)]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
@@ -51,6 +56,9 @@ async function loadApplicationData() {
     listingData = serverListings;
     communityInfo = serverInfo;
     proposalData = serverProposals;
+    myFinances = serverMyFinances;
+    financeOverview = serverFinanceOverview;
+    financeOptions = serverFinanceOptions;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -97,7 +105,7 @@ function projectsView() {
 }
 
 function financeView() {
-  return layout(`<header class="topbar"><div><p class="eyebrow">Прозрачный учет</p><h1>Финансы</h1></div></header><div class="metric-grid"><div class="metric"><span>Баланс поселка</span><strong>${money(dashboardData.balance)}</strong><small>Доступно на счетах</small></div><div class="metric"><span>Поступило в августе</span><strong class="income">+${money(dashboardData.income)}</strong><small>Собираемость 82%</small></div><div class="metric"><span>Потрачено в августе</span><strong>−${money(dashboardData.spent)}</strong><small>Все расходы с документами</small></div></div>${card(`<div class="section-heading"><div><h2>Мои начисления</h2><p>Участок №157</p></div><strong class="paid">Задолженность: ${money(dashboardData.debt)}</strong></div>`)}`);
+  return layout(`<header class="topbar"><div><p class="eyebrow">Прозрачный учет</p><h1>Финансы</h1></div></header>${financeResidentContent({ money, totals: financeOverview.totals, my: myFinances, fundraisers: financeOverview.fundraisers })}${managesCommunity() ? financeAdminContent({ money, totals: financeOverview.totals, expenses: financeOverview.expenses, expenseFilter }) : ''}`);
 }
 
 function requestsView() {
@@ -133,6 +141,15 @@ function listingModal() {
   return `<div class="modal-backdrop"><section class="modal"><button class="modal-close" data-action="close">${icon('close')}</button><p class="eyebrow">Новое объявление</p><h2>Услуга или запрос</h2><label>Тип<select id="listing-type"><option value="OFFER">Предлагаю услугу</option><option value="REQUEST">Ищу услугу</option></select></label><label>Название<input id="listing-title" placeholder="Например, ищу няню на выходные" /></label><label>Категория<input id="listing-category" placeholder="Дети, ремонт, красота…" /></label><label>Описание<textarea id="listing-description" placeholder="Укажите важные детали"></textarea></label><button class="primary full" data-action="submit-listing">Опубликовать</button></section></div>`;
 }
 
+function financeModal(type) {
+  const close = `<button class="modal-close" data-action="close">${icon('close')}</button>`;
+  const submit = label => `<button class="primary full" data-action="submit-finance-${type}">${label}</button>`;
+  if (type === 'charge') return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">Финансовый учет</p><h2>Новое начисление</h2><label>Житель и участок<select id="finance-member">${financeOptions.memberships.flatMap(member => member.properties.map(property => `<option value="${member.userId}|${property.id}">${member.user.fullName} · ${property.street}, ${property.number}</option>`)).join('')}</select></label><label>Период<input id="finance-period" placeholder="Сентябрь 2026" /></label><label>Сумма, ₽<input id="finance-amount" type="number" min="1" /></label><label>Оплатить до<input id="finance-due" type="date" /></label>${submit('Создать начисление')}</section></div>`;
+  if (type === 'payment') return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">Финансовый учет</p><h2>Зарегистрировать оплату</h2><label>Начисление<select id="finance-charge">${financeOptions.openCharges.map(charge => `<option value="${charge.id}">${charge.user.fullName} · ${charge.period} · ${money(charge.amount)}</option>`).join('')}</select></label><label>Сумма, ₽<input id="finance-amount" type="number" min="1" /></label>${submit('Зарегистрировать')}</section></div>`;
+  if (type === 'expense') return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">Финансовый учет</p><h2>Новый расход</h2><label>Описание<input id="finance-description" /></label><label>Категория<input id="finance-category" /></label><label>Получатель<input id="finance-recipient" /></label><label>Проект<select id="finance-project"><option value="">Без проекта</option>${financeOptions.projects.map(project => `<option value="${project.id}">${project.title}</option>`).join('')}</select></label><label>Сумма, ₽<input id="finance-amount" type="number" min="1" /></label>${submit('Опубликовать расход')}</section></div>`;
+  return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">Финансовый учет</p><h2>Новый целевой сбор</h2><label>Название<input id="finance-title" /></label><label>Описание<textarea id="finance-description"></textarea></label><label>Проект<select id="finance-project"><option value="">Общий сбор</option>${financeOptions.projects.map(project => `<option value="${project.id}">${project.title}</option>`).join('')}</select></label><label>Цель, ₽<input id="finance-amount" type="number" min="1" /></label><label>Срок<input id="finance-due" type="date" /></label>${submit('Открыть сбор')}</section></div>`;
+}
+
 function projectModal(project) {
  const p = projectData.find(x => x.id === project || x.title === project) || projectData[0];
  return `<div class="modal-backdrop"><section class="modal project-modal"><button class="modal-close" data-action="close">${icon('close')}</button><span class="badge green">${p.category}</span><h2>${p.title}</h2><p>${p.description}</p><div class="detail-progress"><strong>${p.progress}%</strong><div class="progress-line"><span style="width:${p.progress}%"></span></div><span>готовность</span></div><div class="detail-grid"><div><small>Бюджет</small><strong>${money(p.budget)}</strong></div><div><small>Потрачено</small><strong>${money(p.spent)}</strong></div><div><small>Срок</small><strong>${p.deadline}</strong></div><div><small>Ответственный</small><strong>${p.lead}</strong></div></div><div class="update"><small>Последнее обновление</small><p>${p.update}</p></div></section></div>`;
@@ -154,6 +171,7 @@ document.addEventListener('click', async event => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'request') { modal = requestModal(); render(); }
   if (action === 'listing') { modal = listingModal(); render(); }
+  if (action?.startsWith('finance-') && !action.startsWith('submit-')) { modal = financeModal(action.replace('finance-', '')); render(); }
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
   if (action === 'reload') { loadApplicationData(); }
@@ -169,6 +187,18 @@ document.addEventListener('click', async event => {
     catch (error) { loadError = error.message; modal = null; }
     render();
   }
+  if (action?.startsWith('submit-finance-')) {
+    try {
+      const kind = action.replace('submit-finance-', '');
+      const amount = Number(document.querySelector('#finance-amount')?.value);
+      if (kind === 'charge') { const [userId, propertyId] = document.querySelector('#finance-member').value.split('|'); await createCharge(session.token, { userId, propertyId, amount, period: document.querySelector('#finance-period').value, dueAt: document.querySelector('#finance-due').value || null }); }
+      if (kind === 'payment') await recordPayment(session.token, { chargeId: document.querySelector('#finance-charge').value, amount });
+      if (kind === 'expense') await createExpense(session.token, { amount, description: document.querySelector('#finance-description').value, category: document.querySelector('#finance-category').value, recipient: document.querySelector('#finance-recipient').value, projectId: document.querySelector('#finance-project').value || null });
+      if (kind === 'fundraiser') await createFundraiser(session.token, { title: document.querySelector('#finance-title').value, description: document.querySelector('#finance-description').value, targetAmount: amount, projectId: document.querySelector('#finance-project').value || null, deadline: document.querySelector('#finance-due').value || null });
+      modal = null; active = 'Финансы'; await loadApplicationData();
+    } catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'contribute') { try { await contributeToFundraiser(session.token, event.target.closest('[data-fundraiser]').dataset.fundraiser, 1000); active = 'Финансы'; await loadApplicationData(); } catch (error) { loadError = error.message; render(); } }
   if (action === 'pay') { alert('Демо: платеж сформирован. В рабочей версии здесь открывается безопасная форма оплаты.'); }
   if (action === 'vote') { alert('Демо: ваш голос будет учтён после подключения сервера опросов.'); }
   const project = event.target.closest('[data-project]')?.dataset.project;
@@ -185,12 +215,16 @@ document.addEventListener('submit', async event => {
 });
 
 document.addEventListener('input', event => {
-  if (!event.target.matches('[data-directory-filter]')) return;
-  directoryFilter = event.target.value;
+  const isDirectory = event.target.matches('[data-directory-filter]');
+  const isExpense = event.target.matches('[data-expense-filter]');
+  if (!isDirectory && !isExpense) return;
+  if (isDirectory) directoryFilter = event.target.value;
+  if (isExpense) expenseFilter = event.target.value;
   const position = event.target.selectionStart;
   render();
-  document.querySelector('[data-directory-filter]')?.focus();
-  document.querySelector('[data-directory-filter]')?.setSelectionRange(position, position);
+  const selector = isDirectory ? '[data-directory-filter]' : '[data-expense-filter]';
+  document.querySelector(selector)?.focus();
+  document.querySelector(selector)?.setSelectionRange(position, position);
 });
 
 render();

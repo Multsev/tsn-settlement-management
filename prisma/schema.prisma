@@ -7,16 +7,87 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role { resident owner assistant_chairman board_member chairman administrator }
-enum ProjectStatus { IDEA ESTIMATION PLANNED FUNDRAISING IN_PROGRESS PAUSED COMPLETED CANCELLED }
-enum IssueStatus { NEW ACCEPTED PLANNED IN_PROGRESS WAITING_CONTRACTOR COMPLETED CLOSED }
-enum ChargeStatus { OPEN PAID OVERDUE CANCELLED }
-enum ProposalStatus { SUBMITTED REVIEW VOTING APPROVED REJECTED CONVERTED }
-enum VoteChoice { SUPPORT OPPOSE }
-enum ListingType { OFFER REQUEST }
-enum ListingStatus { ACTIVE CLOSED ARCHIVED }
-enum KnowledgeType { ONBOARDING FAQ RULE }
-enum CommunityDocumentType { CHARTER REGULATION CONTRACT PLAN OTHER }
+enum Role {
+  resident
+  owner
+  assistant_chairman
+  board_member
+  chairman
+  administrator
+}
+
+enum ProjectStatus {
+  IDEA
+  ESTIMATION
+  PLANNED
+  FUNDRAISING
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum IssueStatus {
+  NEW
+  ACCEPTED
+  PLANNED
+  IN_PROGRESS
+  WAITING_CONTRACTOR
+  COMPLETED
+  CLOSED
+}
+
+enum ChargeStatus {
+  OPEN
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ProposalStatus {
+  SUBMITTED
+  REVIEW
+  VOTING
+  APPROVED
+  REJECTED
+  CONVERTED
+}
+
+enum VoteChoice {
+  SUPPORT
+  OPPOSE
+}
+
+enum ListingType {
+  OFFER
+  REQUEST
+}
+
+enum ListingStatus {
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum KnowledgeType {
+  ONBOARDING
+  FAQ
+  RULE
+}
+
+enum CommunityDocumentType {
+  CHARTER
+  REGULATION
+  CONTRACT
+  PLAN
+  OTHER
+}
+
+enum FundraiserStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
 
 model Community {
   id           String       @id @default(cuid())
@@ -38,6 +109,8 @@ model Community {
   serviceContacts ServiceContact[]
   knowledgeArticles KnowledgeArticle[]
   documents    CommunityDocument[]
+  fundraisers  Fundraiser[]
+  fundraiserContributions FundraiserContribution[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -109,6 +182,7 @@ model Membership {
   votes       Vote[]
   skills      MemberSkill[]
   listings    Listing[]
+  fundraiserContributions FundraiserContribution[]
   publicProfile Boolean @default(false)
   publicPhone   Boolean @default(false)
   publicEmail   Boolean @default(false)
@@ -177,6 +251,7 @@ model Project {
   community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
   updates     ProjectUpdate[]
   expenses    Expense[]
+  fundraisers Fundraiser[]
   proposal    Proposal?     @relation(fields: [proposalId], references: [id])
   proposalId  String?       @unique
   createdAt   DateTime      @default(now())
@@ -292,6 +367,35 @@ model Expense {
   spentAt     DateTime  @default(now())
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   project     Project?  @relation(fields: [projectId], references: [id])
+}
+
+model Fundraiser {
+  id              String           @id @default(cuid())
+  communityId     String
+  projectId       String?
+  title           String
+  description     String
+  targetAmount    Int
+  collectedAmount Int              @default(0)
+  deadline        DateTime?
+  status          FundraiserStatus @default(ACTIVE)
+  community       Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id])
+  contributions   FundraiserContribution[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model FundraiserContribution {
+  id           String     @id @default(cuid())
+  communityId  String
+  fundraiserId String
+  membershipId String
+  amount       Int
+  paidAt       DateTime   @default(now())
+  community    Community  @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  fundraiser   Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  membership   Membership @relation(fields: [membershipId], references: [id])
 }
 
 model AuditLog {
