@@ -27,3 +27,4 @@ export const loadCommunityInfo = (token, options) => request('/community-info', 
 export const loadProposals = (token, options) => request('/proposals', { token, ...options });
 export const openVote = (token, proposalId, settings, options) => request(`/proposals/${proposalId}/open-vote`, { token, method: 'POST', body: settings, ...options });
 export const createProjectFromProposal = (token, proposalId, settings, options) => request(`/projects/from-proposal/${proposalId}`, { token, method: 'POST', body: settings, ...options });
+export const loadMyFinances = (token, options) => request('/finances/me', { token, ...options });

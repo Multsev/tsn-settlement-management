@@ -31,6 +31,21 @@ financesRouter.post('/charges', allowRoles('chairman', 'administrator'), async (
   } catch (error) { next(error); }
 });
 
+financesRouter.post('/payments', allowRoles('chairman', 'administrator'), async (request, response, next) => {
+  try {
+    const { chargeId, amount } = request.body;
+    const charge = await database.charge.findFirst({ where: { id: chargeId, communityId: request.membership.communityId } });
+    if (!charge || !Number.isInteger(amount) || amount <= 0) return response.status(400).json({ error: 'Укажите корректное начисление и сумму оплаты.' });
+    const payment = await database.$transaction(async transaction => {
+      const created = await transaction.payment.create({ data: { communityId: charge.communityId, userId: charge.userId, chargeId: charge.id, amount } });
+      if (amount >= charge.amount) await transaction.charge.update({ where: { id: charge.id }, data: { status: 'PAID' } });
+      return created;
+    });
+    await audit({ communityId: charge.communityId, actorId: request.membership.userId, action: 'recorded', entityType: 'Payment', entityId: payment.id, after: payment });
+    response.status(201).json(payment);
+  } catch (error) { next(error); }
+});
+
 financesRouter.post('/expenses', allowRoles('chairman', 'administrator'), async (request, response, next) => {
   try {
     const { amount, category, description, recipient, projectId } = request.body;
