@@ -73,3 +73,6 @@ export const updateMemberAccess = (token, membershipId, data, options) => reques
 export const loadAccountCommunities = (token, options) => request('/account/communities', { token, ...options });
 export const switchCommunity = (token, communityId, options) => request('/account/switch-community', { token, method: 'POST', body: { communityId }, ...options });
 export const acceptInvitation = (data, options) => request('/auth/accept-invitation', { method: 'POST', body: data, ...options });
+export const loadMap = (token, options) => request('/map', { token, ...options });
+export const createMapFeature = (token, data, options) => request('/map/features', { token, method: 'POST', body: data, ...options });
+export const updateMapLocation = (token, entity, id, data, options) => request(`/map/locations/${entity}/${id}`, { token, method: 'PATCH', body: data, ...options });

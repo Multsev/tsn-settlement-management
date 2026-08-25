@@ -4,6 +4,7 @@ import { database } from '../database.js';
 import { isStaff } from '../access.js';
 import { allowRoles } from '../middleware/authentication.js';
 import { canTransitionIssue, validateIssueCompletion } from '../services/issue-workflow.js';
+import { validCoordinates } from '../services/map-rules.js';
 
 export const issuesRouter = Router();
 
@@ -16,11 +17,12 @@ issuesRouter.get('/', async (request, response, next) => {
 
 issuesRouter.post('/', async (request, response, next) => {
   try {
-    const { title, description, address, beforePhotoUrl } = request.body;
+    const { title, description, address, beforePhotoUrl, latitude, longitude } = request.body;
     if (!title || !address) return response.status(400).json({ error: 'Укажите проблему и адрес.' });
+    if ((latitude != null || longitude != null) && !validCoordinates(latitude, longitude)) return response.status(400).json({ error: 'Проверьте точку обращения на карте.' });
     const communityId = request.membership.communityId;
     const lastIssue = await database.issue.findFirst({ where: { communityId }, orderBy: { number: 'desc' }, select: { number: true } });
-    const issue = await database.issue.create({ data: { communityId, authorId: request.membership.userId, number: (lastIssue?.number || 0) + 1, title: title.trim(), description: description?.trim() || null, address: address.trim(), beforePhotoUrl: beforePhotoUrl?.trim() || null, history: { create: { actorId: request.membership.userId, toStatus: 'NEW', comment: 'Обращение создано' } } }, include: { history: true } });
+    const issue = await database.issue.create({ data: { communityId, authorId: request.membership.userId, number: (lastIssue?.number || 0) + 1, title: title.trim(), description: description?.trim() || null, address: address.trim(), beforePhotoUrl: beforePhotoUrl?.trim() || null, latitude: latitude == null ? null : Number(latitude), longitude: longitude == null ? null : Number(longitude), history: { create: { actorId: request.membership.userId, toStatus: 'NEW', comment: 'Обращение создано' } } }, include: { history: true } });
     await audit({ communityId, actorId: request.membership.userId, action: 'created', entityType: 'Issue', entityId: issue.id, after: issue });
     response.status(201).json(issue);
   } catch (error) { next(error); }

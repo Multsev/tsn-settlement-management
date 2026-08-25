@@ -154,6 +154,17 @@ enum DigestStatus {
   PUBLISHED
 }
 
+enum MapFeatureType {
+  INFRASTRUCTURE
+  ROAD
+  GATE
+  CAMERA
+  LIGHTING
+  PLAYGROUND
+  UTILITY
+  OTHER
+}
+
 enum FundraiserStatus {
   ACTIVE
   COMPLETED
@@ -188,6 +199,7 @@ model Community {
   notifications           Notification[]
   weeklyDigests           WeeklyDigest[]
   invitations             MembershipInvitation[]
+  mapFeatures             MapFeature[]
   fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
   createdAt               DateTime                 @default(now())
@@ -348,6 +360,10 @@ model Property {
   number         String
   street         String
   streetId       String?
+  latitude       Float?
+  longitude      Float?
+  hasHouse       Boolean                 @default(false)
+  occupied       Boolean                 @default(false)
   community      Community               @relation(fields: [communityId], references: [id], onDelete: Cascade)
   membership     Membership?             @relation(fields: [membershipId], references: [id])
   streetRecord   Street?                 @relation(fields: [streetId], references: [id])
@@ -364,6 +380,7 @@ model Street {
   roadCondition    String?
   lightingCoverage Int        @default(0)
   note             String?
+  mapPath          Json?
   community        Community  @relation(fields: [communityId], references: [id], onDelete: Cascade)
   properties       Property[]
   projects         Project[]
@@ -414,6 +431,8 @@ model Project {
   beforePhotoUrl  String?
   afterPhotoUrl   String?
   resultNote      String?
+  latitude        Float?
+  longitude       Float?
   community       Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
   street          Street?             @relation(fields: [streetId], references: [id])
   updates         ProjectUpdate[]
@@ -652,6 +671,8 @@ model Issue {
   beforePhotoUrl String?
   afterPhotoUrl  String?
   resultNote     String?
+  latitude       Float?
+  longitude      Float?
   community      Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
   author         User           @relation("IssueAuthor", fields: [authorId], references: [id])
   history        IssueHistory[]
@@ -659,6 +680,22 @@ model Issue {
   updatedAt      DateTime       @updatedAt
 
   @@unique([communityId, number])
+}
+
+model MapFeature {
+  id          String         @id @default(cuid())
+  communityId String
+  type        MapFeatureType
+  title       String
+  description String?
+  status      String?
+  latitude    Float
+  longitude   Float
+  community   Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([communityId, type])
 }
 
 model IssueHistory {
