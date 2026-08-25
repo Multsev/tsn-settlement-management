@@ -1,12 +1,13 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { addProjectUpdate, contributeToFundraiser, createAnnouncement, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProjectTask, createProperty, createStreet, generateDigest, linkContractorProject, loadAnnouncements, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDigests, loadDirectory, loadDocuments, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadNotificationPreferences, loadNotifications, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, login, openVote, publishDigest, readAllNotifications, readNotification, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateContractor, updateDecision, updateIssue, updateNotificationPreferences, updateProject, updateProjectTask } from './api.js';
+import { acceptInvitation, addProjectUpdate, contributeToFundraiser, createAnnouncement, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProjectTask, createProperty, createStreet, generateDigest, inviteMember, linkContractorProject, loadAccountCommunities, loadAnnouncements, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDigests, loadDirectory, loadDocuments, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMembers, loadMyFinances, loadNotificationPreferences, loadNotifications, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, login, openVote, publishDigest, readAllNotifications, readNotification, recordPayment, requestPropertyAccess, reviewPropertyAccess, switchCommunity, updateContractor, updateDecision, updateIssue, updateMemberAccess, updateNotificationPreferences, updateProject, updateProjectTask } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 import { financeAdminContent, financeResidentContent } from './finance-views.js';
 import { issueManagementContent, streetsContent } from './community-operations-views.js';
 import { projectDetail, projectOperationsContent, projectPriorityLabels, projectStatusLabels, roadmapContent } from './project-views.js';
 import { contractorsContent, governanceContent, governanceModal } from './governance-views.js';
 import { communicationsContent, communicationsModal, notificationsContent } from './communications-views.js';
+import { invitationAcceptanceView, memberModal, membersContent } from './member-views.js';
 
 const icon = (name) => ({
   home: '⌂', projects: '◫', finance: '₽', requests: '◌', docs: '▤', more: '•••', bell: '♧', arrow: '→', close: '×', plus: '+'
@@ -42,6 +43,9 @@ let announcementData = [];
 let digestData = [];
 let notificationData = { unread: 0, items: [] };
 let notificationPreferences = { notificationLevel: 'ONLY_IMPORTANT', inAppNotifications: true, emailNotifications: true };
+let memberRegistry = { members: [], invitations: [] };
+let accountCommunities = [];
+const invitationToken = new URLSearchParams(location.search).get('invite');
 let expenseFilter = '';
 const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
 const worksWithProjects = () => ['assistant_chairman', 'board_member', 'chairman', 'administrator'].includes(session?.role);
@@ -65,7 +69,7 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention, serverDecisions, serverDocuments, serverContractors, serverAnnouncements, serverDigests, serverNotifications, serverNotificationPreferences] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([]), loadDecisions(session.token), loadDocuments(session.token), loadContractors(session.token), loadAnnouncements(session.token, managesCommunity()), loadDigests(session.token), loadNotifications(session.token), loadNotificationPreferences(session.token)]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention, serverDecisions, serverDocuments, serverContractors, serverAnnouncements, serverDigests, serverNotifications, serverNotificationPreferences, serverMembers, serverCommunities] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([]), loadDecisions(session.token), loadDocuments(session.token), loadContractors(session.token), loadAnnouncements(session.token, managesCommunity()), loadDigests(session.token), loadNotifications(session.token), loadNotificationPreferences(session.token), managesCommunity() ? loadMembers(session.token) : Promise.resolve(memberRegistry), loadAccountCommunities(session.token)]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects), announcements: serverDashboard.announcements, unreadNotifications: serverDashboard.unreadNotifications, latestDigest: serverDashboard.latestDigest };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
@@ -87,6 +91,8 @@ async function loadApplicationData() {
     digestData = serverDigests;
     notificationData = serverNotifications;
     notificationPreferences = serverNotificationPreferences;
+    memberRegistry = serverMembers;
+    accountCommunities = serverCommunities;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -97,8 +103,8 @@ function layout(content) {
   return `
     <aside class="sidebar">
       <a class="brand" href="#"><span class="brand-mark">⌁</span><span>прозор</span></a>
-      <div class="community-switch"><span class="community-dot"></span><div><small>Мой поселок</small><strong>${dashboardData.community}</strong></div><span>⌄</span></div>
-      <nav>${[...navigation, ...(managesCommunity() ? [['more', 'Управление']] : [])].map(([key, label]) => `<button class="nav-item ${active === label ? 'active' : ''}" data-view="${label}"><span>${icon(key)}</span>${label}</button>`).join('')}</nav>
+      <div class="community-switch"><span class="community-dot"></span><div><small>Мой поселок</small>${accountCommunities.length > 1 ? `<select data-community-switch>${accountCommunities.map(item => `<option value="${item.community.id}" ${item.current ? 'selected' : ''}>${item.community.name}</option>`).join('')}</select>` : `<strong>${dashboardData.community}</strong>`}</div><span>⌄</span></div>
+      <nav>${[...navigation, ...(managesCommunity() ? [['more', 'Управление'], ['more', 'Пользователи']] : [])].map(([key, label]) => `<button class="nav-item ${active === label ? 'active' : ''}" data-view="${label}"><span>${icon(key)}</span>${label}</button>`).join('')}</nav>
       <div class="side-bottom"><button class="nav-item"><span>?</span> Помощь</button><button class="profile profile-button" data-action="logout"><span class="avatar">${currentUser?.fullName?.split(' ').map(word => word[0]).join('').slice(0, 2) || 'АС'}</span><div><strong>${currentUser?.fullName || 'Александр С.'}</strong><small>Выйти из аккаунта</small></div><span>⌄</span></button></div>
     </aside>
     <main class="content">${content}</main>
@@ -148,6 +154,10 @@ function communicationsView() {
 
 function notificationsView() {
   return layout(notificationsContent({ notifications: notificationData, preferences: notificationPreferences, card }));
+}
+
+function membersView() {
+  return layout(membersContent({ registry: memberRegistry, currentMembershipId: session.membershipId, card }));
 }
 
 function requestsView() {
@@ -226,8 +236,9 @@ function loginView() {
 }
 
 function render() {
+  if (invitationToken && !session) { document.querySelector('#app').innerHTML = invitationAcceptanceView(invitationToken); return; }
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Финансы': financeView, 'Заявки': requestsView, 'Объявления': communicationsView, 'Уведомления': notificationsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Подрядчики': contractorsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Финансы': financeView, 'Заявки': requestsView, 'Объявления': communicationsView, 'Уведомления': notificationsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Подрядчики': contractorsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView, 'Пользователи': membersView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -251,6 +262,8 @@ document.addEventListener('click', async event => {
   if (action === 'link-contractor') { modal = governanceModal('contractor-link', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses, contractorId: event.target.closest('[data-contractor-id]').dataset.contractorId }); render(); }
   if (action === 'new-announcement') { modal = communicationsModal('announcement', notificationPreferences); render(); }
   if (action === 'notification-preferences') { modal = communicationsModal('preferences', notificationPreferences); render(); }
+  if (action === 'invite-member') { modal = memberModal('invite'); render(); }
+  if (action === 'manage-member') { modal = memberModal('access', { member: memberRegistry.members.find(item => item.id === event.target.closest('[data-membership-id]').dataset.membershipId) }); render(); }
   if (action?.startsWith('finance-') && !action.startsWith('submit-')) { modal = financeModal(action.replace('finance-', '')); render(); }
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
@@ -357,6 +370,18 @@ document.addEventListener('click', async event => {
       modal = null; active = 'Уведомления'; await loadApplicationData();
     } catch (error) { loadError = error.message; modal = null; render(); }
   }
+  if (action === 'submit-member-invite') {
+    try { const invitation = await inviteMember(session.token, { email: document.querySelector('#member-email').value, role: document.querySelector('#member-role').value }); modal = memberModal('invite-result', invitation); await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'copy-invitation') {
+    await navigator.clipboard.writeText(document.querySelector('#invitation-link').value);
+    event.target.textContent = 'Ссылка скопирована';
+  }
+  if (action === 'submit-member-access') {
+    try { await updateMemberAccess(session.token, event.target.closest('[data-membership-id]').dataset.membershipId, { role: document.querySelector('#member-role').value, approved: document.querySelector('#member-approved').checked, suspended: document.querySelector('#member-suspended').checked }); modal = null; active = 'Пользователи'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
   if (action === 'submit-listing') {
     try { const listing = await createListing(session.token, { type: document.querySelector('#listing-type')?.value, title: document.querySelector('#listing-title')?.value, category: document.querySelector('#listing-category')?.value, description: document.querySelector('#listing-description')?.value }); listingData.unshift(listing); modal = null; active = 'Соседи'; }
     catch (error) { loadError = error.message; modal = null; }
@@ -381,12 +406,24 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('submit', async event => {
+  if (event.target.id === 'invitation-form') {
+    event.preventDefault();
+    try { const result = await acceptInvitation(Object.fromEntries(new FormData(event.target))); session = { token: result.token, user: result.user, community: result.community, role: result.role, membershipId: result.membershipId }; currentUser = result.user; saveSession(session); history.replaceState({}, '', location.pathname); await loadApplicationData(); }
+    catch (error) { loadError = error.message; render(); }
+    return;
+  }
   if (event.target.id !== 'login-form') return;
   event.preventDefault();
   const form = new FormData(event.target);
   loading = true; loadError = ''; render();
-  try { const result = await login(Object.fromEntries(form)); session = { token: result.token, user: result.user, community: result.community, role: result.role }; currentUser = result.user; saveSession(session); await loadApplicationData(); }
+  try { const result = await login(Object.fromEntries(form)); session = { token: result.token, user: result.user, community: result.community, role: result.role, membershipId: result.membershipId }; currentUser = result.user; saveSession(session); await loadApplicationData(); }
   catch (error) { loading = false; loadError = error.message; render(); }
+});
+
+document.addEventListener('change', async event => {
+  if (!event.target.matches('[data-community-switch]')) return;
+  try { const result = await switchCommunity(session.token, event.target.value); session = { token: result.token, user: result.user, community: result.community, role: result.role, membershipId: result.membershipId }; currentUser = result.user; saveSession(session); active = 'Главная'; await loadApplicationData(); }
+  catch (error) { loadError = error.message; render(); }
 });
 
 document.addEventListener('input', event => {

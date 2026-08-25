@@ -67,3 +67,9 @@ export const readAllNotifications = (token, options) => request('/notifications/
 export const loadDigests = (token, options) => request('/digests', { token, ...options });
 export const generateDigest = (token, options) => request('/digests/generate', { token, method: 'POST', body: {}, ...options });
 export const publishDigest = (token, digestId, options) => request(`/digests/${digestId}/publish`, { token, method: 'POST', body: {}, ...options });
+export const loadMembers = (token, options) => request('/members', { token, ...options });
+export const inviteMember = (token, data, options) => request('/members/invitations', { token, method: 'POST', body: data, ...options });
+export const updateMemberAccess = (token, membershipId, data, options) => request(`/members/${membershipId}`, { token, method: 'PATCH', body: data, ...options });
+export const loadAccountCommunities = (token, options) => request('/account/communities', { token, ...options });
+export const switchCommunity = (token, communityId, options) => request('/account/switch-community', { token, method: 'POST', body: { communityId }, ...options });
+export const acceptInvitation = (data, options) => request('/auth/accept-invitation', { method: 'POST', body: data, ...options });

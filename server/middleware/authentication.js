@@ -12,6 +12,7 @@ export async function requireMembership(request, response, next) {
       include: { user: true, community: true }
     });
     if (!membership || !membership.approvedAt) return response.status(403).json({ error: 'Доступ к поселку не подтвержден.' });
+    if (membership.suspendedAt) return response.status(403).json({ error: 'Доступ к поселку приостановлен.' });
     request.membership = membership;
     next();
   } catch {

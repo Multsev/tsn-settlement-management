@@ -187,6 +187,7 @@ model Community {
   announcements           Announcement[]
   notifications           Notification[]
   weeklyDigests           WeeklyDigest[]
+  invitations             MembershipInvitation[]
   fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
   createdAt               DateTime                 @default(now())
@@ -244,18 +245,19 @@ model CommunityDocument {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String
-  fullName     String
-  memberships  Membership[]
-  charges      Charge[]
-  payments     Payment[]
-  issues       Issue[]      @relation("IssueAuthor")
-  auditLogs    AuditLog[]   @relation("AuditActor")
-  proposals    Proposal[]   @relation("ProposalAuthor")
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id              String                 @id @default(cuid())
+  email           String                 @unique
+  passwordHash    String
+  fullName        String
+  memberships     Membership[]
+  charges         Charge[]
+  payments        Payment[]
+  issues          Issue[]                @relation("IssueAuthor")
+  auditLogs       AuditLog[]             @relation("AuditActor")
+  sentInvitations MembershipInvitation[] @relation("InvitationSender")
+  proposals       Proposal[]             @relation("ProposalAuthor")
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 }
 
 model Membership {
@@ -264,6 +266,7 @@ model Membership {
   communityId             String
   role                    Role                     @default(resident)
   approvedAt              DateTime?
+  suspendedAt             DateTime?
   user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   community               Community                @relation(fields: [communityId], references: [id], onDelete: Cascade)
   properties              Property[]
@@ -280,8 +283,26 @@ model Membership {
   inAppNotifications      Boolean                  @default(true)
   emailNotifications      Boolean                  @default(true)
   notifications           Notification[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @default(now()) @updatedAt
 
   @@unique([userId, communityId])
+}
+
+model MembershipInvitation {
+  id          String    @id @default(cuid())
+  communityId String
+  invitedById String
+  email       String
+  role        Role      @default(resident)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  invitedBy   User      @relation("InvitationSender", fields: [invitedById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@index([communityId, email])
 }
 
 model Skill {
