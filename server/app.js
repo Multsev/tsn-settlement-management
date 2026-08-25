@@ -1,4 +1,9 @@
 import express from 'express';
+import compression from 'compression';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { authRouter } from './routes/auth.js';
 import { communityInfoRouter } from './routes/community-info.js';
 import { dashboardRouter } from './routes/dashboard.js';
@@ -29,9 +34,16 @@ import { wasteRouter } from './routes/waste.js';
 import { filesRouter } from './routes/files.js';
 import { requireMembership } from './middleware/authentication.js';
 import { config } from './config.js';
+import { database } from './database.js';
 
 export const app = express();
-app.use(express.json());
+app.set('trust proxy', config.trustProxy ? 1 : false);
+app.use((request, response, next) => { request.requestId = request.headers['x-request-id'] || randomUUID(); response.setHeader('X-Request-Id', request.requestId); next(); });
+app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(compression());
+app.use('/api', rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Слишком много запросов. Повторите позже.' } }));
+app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Слишком много попыток входа. Повторите позже.' } }));
+app.use(express.json({ limit: '1mb' }));
 app.use((request, response, next) => {
   if (request.headers.origin === config.webOrigin) response.setHeader('Access-Control-Allow-Origin', config.webOrigin);
   response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
@@ -39,7 +51,12 @@ app.use((request, response, next) => {
   if (request.method === 'OPTIONS') return response.sendStatus(204);
   next();
 });
-app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
+app.get('/api/health', (_request, response) => response.json({ status: 'ok', version: config.appVersion }));
+app.get('/api/openapi.json', (_request, response) => response.sendFile(path.resolve('docs/openapi.json')));
+app.get('/api/ready', async (_request, response) => {
+  try { await database.$queryRaw`SELECT 1`; response.json({ status: 'ready' }); }
+  catch { response.status(503).json({ status: 'not_ready' }); }
+});
 app.use('/api/auth', authRouter);
 app.use('/api/community-info', requireMembership, communityInfoRouter);
 app.use('/api/dashboard', requireMembership, dashboardRouter);
@@ -68,8 +85,13 @@ app.use('/api/directory', requireMembership, directoryRouter);
 app.use('/api/listings', requireMembership, listingsRouter);
 app.use('/api/proposals', requireMembership, proposalsRouter);
 app.use('/api/polls', requireMembership, pollsRouter);
+if (config.nodeEnv === 'production') {
+  const distribution = path.resolve('dist');
+  app.use(express.static(distribution, { maxAge: '1y', immutable: true, index: false, setHeaders: (response, filename) => { if (filename.endsWith('sw.js') || filename.endsWith('manifest.webmanifest') || filename.endsWith('offline.html')) response.setHeader('Cache-Control', 'no-cache'); } }));
+  app.use((request, response, next) => request.method === 'GET' && !request.path.startsWith('/api/') ? response.sendFile(path.join(distribution, 'index.html')) : next());
+}
 app.use((error, _request, response, _next) => {
   if (error?.code === 'LIMIT_FILE_SIZE') return response.status(400).json({ error: 'Размер файла должен быть не более 15 МБ.' });
-  console.error(error);
-  response.status(500).json({ error: 'Внутренняя ошибка сервера.' });
+  console.error(JSON.stringify({ level: 'error', requestId: _request.requestId, method: _request.method, path: _request.path, message: error.message, stack: config.nodeEnv === 'development' ? error.stack : undefined }));
+  response.status(500).json({ error: 'Внутренняя ошибка сервера.', requestId: _request.requestId });
 });

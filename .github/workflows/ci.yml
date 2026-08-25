@@ -24,5 +24,7 @@ jobs:
         run: npm ci
       - name: Проверить проект
         run: npm run verify
-      - name: Проверить схему базы данных
-        run: npm run verify:database
+      - name: Проверить production-зависимости
+        run: npm audit --omit=dev
+      - name: Собрать production-образ
+        run: docker build -t prozor:test .

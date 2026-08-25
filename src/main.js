@@ -1,4 +1,5 @@
 import './styles.css';
+import { initializePwa } from './pwa.js';
 import { dashboard, issues, money, projects } from './data.js';
 import { acceptInvitation, addProjectUpdate, contributeToFundraiser, createAnnouncement, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createManagementReport, createMapFeature, createPickupRequest, createProjectFromProposal, createProjectTask, createProperty, createStreet, createSurvey, createWasteSchedule, createWasteSite, deleteFile, downloadFile, generateDigest, inviteMember, linkContractorProject, loadAccountCommunities, loadAnnouncements, loadAuditLog, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDigests, loadDirectory, loadDocuments, loadFiles, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadManagementDashboard, loadManagementReports, loadMap, loadMembers, loadMyFinances, loadNotificationPreferences, loadNotifications, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, loadSurveys, loadWaste, login, openVote, publishDigest, readAllNotifications, readNotification, recordPayment, requestPropertyAccess, respondToSurvey, reviewPropertyAccess, searchCommunity, switchCommunity, updateContractor, updateDecision, updateIssue, updateMapLocation, updateMemberAccess, updateNotificationPreferences, updatePickupRequest, updateProject, updateProjectTask, updateSurveyStatus, updateWasteRule, updateWasteSchedule, uploadFile } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
@@ -549,4 +550,5 @@ document.addEventListener('input', event => {
 });
 
 render();
+initializePwa();
 if (session) loadApplicationData();

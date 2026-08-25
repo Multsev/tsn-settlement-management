@@ -1,0 +1,36 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Прозор API", "version": "0.22.0", "description": "REST API платформы управления поселком. Защищенные маршруты требуют Bearer JWT выбранного поселка." },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" } },
+    "schemas": { "Error": { "type": "object", "required": ["error"], "properties": { "error": { "type": "string" }, "requestId": { "type": "string" } } } }
+  },
+  "paths": {
+    "/health": { "get": { "summary": "Liveness", "responses": { "200": { "description": "Процесс работает" } } } },
+    "/ready": { "get": { "summary": "Readiness PostgreSQL", "responses": { "200": { "description": "Сервис готов" }, "503": { "description": "База недоступна" } } } },
+    "/auth/login": {
+      "post": {
+        "summary": "Вход и выбор поселка",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "password", "communitySlug"], "properties": { "email": { "type": "string", "format": "email" }, "password": { "type": "string" }, "communitySlug": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "JWT и профиль" }, "401": { "description": "Неверные данные" }, "429": { "description": "Лимит попыток" } }
+      }
+    },
+    "/dashboard": { "get": { "summary": "Главная сводка", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "Сводка" } } } },
+    "/projects": { "get": { "summary": "Проекты", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "Список" } } } },
+    "/issues": {
+      "get": { "summary": "Обращения с учетом роли", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "Список" } } },
+      "post": { "summary": "Создать обращение", "security": [{ "bearerAuth": [] }], "responses": { "201": { "description": "Создано" } } }
+    },
+    "/files": {
+      "get": { "summary": "Доступные файлы", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "Список" } } },
+      "post": {
+        "summary": "Загрузить файл до 15 МБ",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["file"], "properties": { "file": { "type": "string", "format": "binary" }, "visibility": { "type": "string", "enum": ["COMMUNITY", "MANAGEMENT"] }, "entityType": { "type": "string" }, "entityId": { "type": "string" } } } } } },
+        "responses": { "201": { "description": "Загружено" } }
+      }
+    },
+    "/search": { "get": { "summary": "Глобальный поиск", "security": [{ "bearerAuth": [] }], "parameters": [{ "in": "query", "name": "q", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Результаты" } } } }
+  }
+}

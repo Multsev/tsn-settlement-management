@@ -197,6 +197,16 @@ npm run db:migrate -- --name complete-waste-utilities-scope
 npm run db:migrate -- --name complete-file-object-storage-scope
 ```
 
+## PWA и production-ready
+
+Прозор устанавливается как PWA, имеет самостоятельную офлайн-страницу и индикатор сети. Service worker кэширует только оболочку и публичные статические ресурсы: ответы API и приватные данные жителей намеренно не сохраняются офлайн.
+
+Production-образ запускает миграции, API и собранный интерфейс одним контейнером, предоставляет liveness/readiness endpoints, graceful shutdown, security headers, rate limits, request ID и структурированные ошибки. CI проверяет тесты, production-артефакты, зависимости и сборку Docker. Инструкция по запуску, backup/restore и откату находится в `docs/production.md`, схема API — в `docs/openapi.json` и по `/api/openapi.json`.
+
+```bash
+JWT_SECRET="$(openssl rand -base64 48)" docker compose --profile production up -d --build
+```
+
 ## Структура
 
 - `index.html` — единственная точка подключения приложения.
@@ -219,6 +229,9 @@ npm run db:migrate -- --name complete-file-object-storage-scope
 - `prisma/schema.prisma` — PostgreSQL-схема, включающая поселки, членство, участки, проекты, заявки и финансы.
 - `prisma/seed.js` — безопасный для повторного запуска набор локальных демо-данных.
 - `docker-compose.yml` — локальный PostgreSQL.
+- `Dockerfile` и production-профиль Compose — воспроизводимый production-запуск.
+- `public/manifest.webmanifest`, `public/sw.js` и `public/offline.html` — устанавливаемая PWA-оболочка.
+- `docs/production.md` — эксплуатация, безопасность, резервное копирование и восстановление.
 - `tests/` — быстрые проверки доменных данных.
 - `.github/workflows/` — CI при изменении `main` и публикация GitHub Release при push тега.
 - `scripts/release-guide.md` — правила версий и точные команды релиза.

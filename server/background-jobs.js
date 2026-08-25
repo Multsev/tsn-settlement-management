@@ -17,4 +17,5 @@ export function startBackgroundJobs() {
   emailTimer.unref();
   void runDigests();
   void runDelivery();
+  return () => { clearInterval(digestTimer); clearInterval(emailTimer); };
 }
