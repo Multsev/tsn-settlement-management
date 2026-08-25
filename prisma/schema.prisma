@@ -7,10 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role { resident owner board_member chairman administrator }
+enum Role { resident owner assistant_chairman board_member chairman administrator }
 enum ProjectStatus { IDEA ESTIMATION PLANNED FUNDRAISING IN_PROGRESS PAUSED COMPLETED CANCELLED }
 enum IssueStatus { NEW ACCEPTED PLANNED IN_PROGRESS WAITING_CONTRACTOR COMPLETED CLOSED }
 enum ChargeStatus { OPEN PAID OVERDUE CANCELLED }
+enum ProposalStatus { SUBMITTED REVIEW VOTING APPROVED REJECTED CONVERTED }
+enum VoteChoice { SUPPORT OPPOSE }
 
 model Community {
   id           String       @id @default(cuid())
@@ -24,6 +26,8 @@ model Community {
   payments     Payment[]
   expenses     Expense[]
   auditLogs    AuditLog[]
+  proposals    Proposal[]
+  polls        Poll[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -38,6 +42,7 @@ model User {
   payments     Payment[]
   issues       Issue[]      @relation("IssueAuthor")
   auditLogs    AuditLog[]   @relation("AuditActor")
+  proposals    Proposal[]   @relation("ProposalAuthor")
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -51,6 +56,7 @@ model Membership {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   properties  Property[]
+  votes       Vote[]
   @@unique([userId, communityId])
 }
 
@@ -81,8 +87,54 @@ model Project {
   community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
   updates     ProjectUpdate[]
   expenses    Expense[]
+  proposal    Proposal?     @relation(fields: [proposalId], references: [id])
+  proposalId  String?       @unique
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+}
+
+model Proposal {
+  id                String         @id @default(cuid())
+  communityId       String
+  authorId          String
+  title             String
+  description       String
+  category          String
+  preliminaryBudget Int?
+  status            ProposalStatus @default(SUBMITTED)
+  community         Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  author            User           @relation("ProposalAuthor", fields: [authorId], references: [id])
+  poll              Poll?
+  project           Project?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Poll {
+  id              String   @id @default(cuid())
+  communityId     String
+  proposalId      String   @unique
+  eligibleVoters  Int
+  quorumPercent   Int      @default(30)
+  approvalPercent Int      @default(60)
+  opensAt         DateTime @default(now())
+  closesAt        DateTime
+  community       Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  proposal        Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  votes           Vote[]
+  createdAt       DateTime @default(now())
+}
+
+model Vote {
+  id           String     @id @default(cuid())
+  pollId       String
+  membershipId String
+  choice       VoteChoice
+  poll         Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  @@unique([pollId, membershipId])
 }
 
 model ProjectUpdate {
