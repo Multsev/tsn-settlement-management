@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: prozor
+      POSTGRES_USER: prozor
+      POSTGRES_PASSWORD: prozor
+    ports:
+      - '5432:5432'
+    volumes:
+      - prozor-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U prozor -d prozor']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  prozor-postgres:

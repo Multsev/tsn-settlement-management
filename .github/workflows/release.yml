@@ -25,6 +25,8 @@ jobs:
         run: npm ci
       - name: Проверить проект
         run: npm run verify
+      - name: Проверить схему базы данных
+        run: npm run verify:database
       - name: Сверить версию тега с package.json
         run: |
           test "v$(node -p \"require('./package.json').version\")" = "$GITHUB_REF_NAME"

@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role { resident owner board_member chairman administrator }
+enum ProjectStatus { IDEA ESTIMATION PLANNED FUNDRAISING IN_PROGRESS PAUSED COMPLETED CANCELLED }
+enum IssueStatus { NEW ACCEPTED PLANNED IN_PROGRESS WAITING_CONTRACTOR COMPLETED CLOSED }
+enum ChargeStatus { OPEN PAID OVERDUE CANCELLED }
+
+model Community {
+  id           String       @id @default(cuid())
+  name         String
+  slug         String       @unique
+  memberships  Membership[]
+  properties   Property[]
+  projects     Project[]
+  issues       Issue[]
+  charges      Charge[]
+  payments     Payment[]
+  expenses     Expense[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  fullName     String
+  memberships  Membership[]
+  charges      Charge[]
+  payments     Payment[]
+  issues       Issue[]      @relation("IssueAuthor")
+  auditLogs    AuditLog[]   @relation("AuditActor")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  communityId String
+  role        Role      @default(resident)
+  approvedAt  DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  properties  Property[]
+  @@unique([userId, communityId])
+}
+
+model Property {
+  id           String      @id @default(cuid())
+  communityId  String
+  membershipId String?
+  number       String
+  street       String
+  community    Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  membership   Membership? @relation(fields: [membershipId], references: [id])
+  charges      Charge[]
+  @@unique([communityId, number])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  communityId String
+  title       String
+  description String
+  category    String
+  status      ProjectStatus @default(IDEA)
+  budget      Int           @default(0)
+  collected   Int           @default(0)
+  spent       Int           @default(0)
+  progress    Int           @default(0)
+  deadline    DateTime?
+  community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  updates     ProjectUpdate[]
+  expenses    Expense[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ProjectUpdate {
+  id        String   @id @default(cuid())
+  projectId String
+  message   String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  communityId String
+  authorId    String
+  number      Int
+  title       String
+  description String?
+  address     String
+  status      IssueStatus @default(NEW)
+  dueAt       DateTime?
+  responsible String?
+  community   Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  author      User        @relation("IssueAuthor", fields: [authorId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  @@unique([communityId, number])
+}
+
+model Charge {
+  id          String       @id @default(cuid())
+  communityId String
+  userId      String
+  propertyId  String
+  amount      Int
+  period      String
+  status      ChargeStatus @default(OPEN)
+  dueAt       DateTime?
+  community   Community    @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  property    Property     @relation(fields: [propertyId], references: [id])
+  payments    Payment[]
+  createdAt   DateTime     @default(now())
+}
+
+model Payment {
+  id          String    @id @default(cuid())
+  communityId String
+  userId      String
+  chargeId    String?
+  amount      Int
+  paidAt      DateTime  @default(now())
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+  charge      Charge?   @relation(fields: [chargeId], references: [id])
+}
+
+model Expense {
+  id          String    @id @default(cuid())
+  communityId String
+  projectId   String?
+  amount      Int
+  category    String
+  description String
+  recipient   String
+  spentAt     DateTime  @default(now())
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  project     Project?  @relation(fields: [projectId], references: [id])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  communityId String
+  actorId     String?
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  actor       User?     @relation("AuditActor", fields: [actorId], references: [id])
+  createdAt   DateTime  @default(now())
+}
