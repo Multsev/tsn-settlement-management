@@ -20,6 +20,7 @@ let projectData = projects;
 let issueData = issues;
 let directoryData = [];
 let listingData = [];
+let directoryFilter = '';
 let loading = false;
 let loadError = '';
 
@@ -104,7 +105,9 @@ function docsView() {
 
 function neighborsView() {
   const contacts = profile => [profile.contact.phone, profile.contact.email].filter(Boolean).join(' · ') || 'Контакты скрыты владельцем';
-  return layout(`<header class="topbar"><div><p class="eyebrow">Внутри ${dashboardData.community}</p><h1>Соседи и услуги</h1></div><button class="primary" data-action="listing">${icon('plus')} Разместить объявление</button></header><div class="neighbors-grid"><section><div class="section-heading"><div><h2>Доска объявлений</h2><p>Предлагают и ищут услуги рядом с домом</p></div></div><div class="projects-list">${listingData.length ? listingData.map(listing => card(`<article class="listing-card"><span class="badge ${listing.type === 'OFFER' ? 'green' : 'orange'}">${listing.type === 'OFFER' ? 'Предлагаю' : 'Ищу'}</span><h2>${listing.title}</h2><p>${listing.description}</p><small>${listing.category} · ${listing.author.name}</small><div class="listing-contact">${contacts(listing.author)}</div></article>`)).join('') : card('<p>Пока нет активных объявлений.</p>')}</div></section><section><div class="section-heading"><div><h2>Каталог навыков</h2><p>Только профили, открытые самими жителями</p></div></div><div class="directory-list">${directoryData.length ? directoryData.map(person => card(`<article class="person-card"><span class="avatar">${person.name.split(' ').map(word => word[0]).join('').slice(0, 2)}</span><div><h3>${person.name}</h3><p>${person.streets.join(', ') || 'Улица не указана'}</p><div class="skill-list">${person.skills.map(skill => `<span>${skill}</span>`).join('')}</div><small>${contacts(person)}</small></div></article>`)).join('') : card('<p>Жители пока не открыли публичные профили.</p>')}</div></section></div>`);
+  const query = directoryFilter.trim().toLocaleLowerCase('ru-RU');
+  const matchingPeople = directoryData.filter(person => !query || `${person.name} ${person.streets.join(' ')} ${person.skills.join(' ')}`.toLocaleLowerCase('ru-RU').includes(query));
+  return layout(`<header class="topbar"><div><p class="eyebrow">Внутри ${dashboardData.community}</p><h1>Соседи и услуги</h1></div><button class="primary" data-action="listing">${icon('plus')} Разместить объявление</button></header><div class="neighbors-grid"><section><div class="section-heading"><div><h2>Доска объявлений</h2><p>Предлагают и ищут услуги рядом с домом</p></div></div><div class="projects-list">${listingData.length ? listingData.map(listing => card(`<article class="listing-card"><span class="badge ${listing.type === 'OFFER' ? 'green' : 'orange'}">${listing.type === 'OFFER' ? 'Предлагаю' : 'Ищу'}</span><h2>${listing.title}</h2><p>${listing.description}</p><small>${listing.category} · ${listing.author.name}</small><div class="listing-contact">${contacts(listing.author)}</div></article>`)).join('') : card('<p>Пока нет активных объявлений.</p>')}</div></section><section><div class="section-heading"><div><h2>Каталог навыков</h2><p>Только профили, открытые самими жителями</p></div></div><input class="directory-filter" data-directory-filter placeholder="Навык или улица" value="${directoryFilter}" /><div class="directory-list">${matchingPeople.length ? matchingPeople.map(person => card(`<article class="person-card"><span class="avatar">${person.name.split(' ').map(word => word[0]).join('').slice(0, 2)}</span><div><h3>${person.name}</h3><p>${person.streets.join(', ') || 'Улица не указана'}</p><div class="skill-list">${person.skills.map(skill => `<span>${skill}</span>`).join('')}</div><small>${contacts(person)}</small></div></article>`)).join('') : card('<p>По этому запросу никого не найдено.</p>')}</div></section></div>`);
 }
 
 function requestModal() {
@@ -162,6 +165,15 @@ document.addEventListener('submit', async event => {
   loading = true; loadError = ''; render();
   try { const result = await login(Object.fromEntries(form)); session = { token: result.token, user: result.user, community: result.community, role: result.role }; currentUser = result.user; saveSession(session); await loadApplicationData(); }
   catch (error) { loading = false; loadError = error.message; render(); }
+});
+
+document.addEventListener('input', event => {
+  if (!event.target.matches('[data-directory-filter]')) return;
+  directoryFilter = event.target.value;
+  const position = event.target.selectionStart;
+  render();
+  document.querySelector('[data-directory-filter]')?.focus();
+  document.querySelector('[data-directory-filter]')?.setSelectionRange(position, position);
 });
 
 render();
