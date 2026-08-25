@@ -1,5 +1,6 @@
 import express from 'express';
 import { authRouter } from './routes/auth.js';
+import { communityInfoRouter } from './routes/community-info.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { directoryRouter } from './routes/directory.js';
 import { projectsRouter } from './routes/projects.js';
@@ -22,6 +23,7 @@ app.use((request, response, next) => {
 });
 app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
 app.use('/api/auth', authRouter);
+app.use('/api/community-info', requireMembership, communityInfoRouter);
 app.use('/api/dashboard', requireMembership, dashboardRouter);
 app.use('/api/projects', requireMembership, projectsRouter);
 app.use('/api/issues', requireMembership, issuesRouter);

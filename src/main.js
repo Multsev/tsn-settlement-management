@@ -1,6 +1,6 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { createIssue, createListing, loadDashboard, loadDirectory, loadIssues, loadListings, loadProjects, login } from './api.js';
+import { createIssue, createListing, loadCommunityInfo, loadDashboard, loadDirectory, loadIssues, loadListings, loadProjects, login } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 
 const icon = (name) => ({
@@ -8,7 +8,7 @@ const icon = (name) => ({
 }[name] || '•');
 
 const navigation = [
-  ['home', 'Главная'], ['projects', 'Проекты'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['docs', 'Документы'], ['more', 'Соседи']
+  ['home', 'Главная'], ['projects', 'Проекты'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['docs', 'Документы'], ['more', 'Соседи'], ['more', 'О поселке']
 ];
 
 let active = 'Главная';
@@ -21,6 +21,7 @@ let issueData = issues;
 let directoryData = [];
 let listingData = [];
 let directoryFilter = '';
+let communityInfo = { community: {}, contacts: [], articles: [], documents: [] };
 let loading = false;
 let loadError = '';
 
@@ -40,12 +41,13 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token)]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token)]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
     directoryData = serverDirectory;
     listingData = serverListings;
+    communityInfo = serverInfo;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -110,6 +112,11 @@ function neighborsView() {
   return layout(`<header class="topbar"><div><p class="eyebrow">Внутри ${dashboardData.community}</p><h1>Соседи и услуги</h1></div><button class="primary" data-action="listing">${icon('plus')} Разместить объявление</button></header><div class="neighbors-grid"><section><div class="section-heading"><div><h2>Доска объявлений</h2><p>Предлагают и ищут услуги рядом с домом</p></div></div><div class="projects-list">${listingData.length ? listingData.map(listing => card(`<article class="listing-card"><span class="badge ${listing.type === 'OFFER' ? 'green' : 'orange'}">${listing.type === 'OFFER' ? 'Предлагаю' : 'Ищу'}</span><h2>${listing.title}</h2><p>${listing.description}</p><small>${listing.category} · ${listing.author.name}</small><div class="listing-contact">${contacts(listing.author)}</div></article>`)).join('') : card('<p>Пока нет активных объявлений.</p>')}</div></section><section><div class="section-heading"><div><h2>Каталог навыков</h2><p>Только профили, открытые самими жителями</p></div></div><input class="directory-filter" data-directory-filter placeholder="Навык или улица" value="${directoryFilter}" /><div class="directory-list">${matchingPeople.length ? matchingPeople.map(person => card(`<article class="person-card"><span class="avatar">${person.name.split(' ').map(word => word[0]).join('').slice(0, 2)}</span><div><h3>${person.name}</h3><p>${person.streets.join(', ') || 'Улица не указана'}</p><div class="skill-list">${person.skills.map(skill => `<span>${skill}</span>`).join('')}</div><small>${contacts(person)}</small></div></article>`)).join('') : card('<p>По этому запросу никого не найдено.</p>')}</div></section></div>`);
 }
 
+function aboutView() {
+  const grouped = type => communityInfo.articles.filter(article => article.type === type);
+  return layout(`<header class="topbar"><div><p class="eyebrow">Для жителей и новых собственников</p><h1>О поселке</h1></div></header><section class="about-hero"><div><span class="badge green">${communityInfo.community.name || dashboardData.community}</span><h2>${communityInfo.community.address || 'Адрес поселка уточняется у администрации'}</h2><p>Здесь собрана основная информация: куда обращаться, как подключить коммуникации и какие правила действуют в поселке.</p></div></section><div class="about-grid"><section><h2>Полезные контакты</h2><div class="directory-list">${communityInfo.contacts.length ? communityInfo.contacts.map(contact => card(`<article class="contact-card"><strong>${contact.title}</strong><span>${contact.contactName || ''}</span><p>${[contact.phone, contact.email].filter(Boolean).join(' · ') || 'Контакт уточняется'}</p><small>${contact.note || ''}</small></article>`)).join('') : card('<p>Контакты добавит председатель.</p>')}</div></section><section><h2>Начинаю жить в поселке</h2><div class="directory-list">${grouped('ONBOARDING').map(article => card(`<article class="article-card"><h3>${article.title}</h3><p>${article.content}</p></article>`)).join('') || card('<p>Инструкции готовятся.</p>')}</div></section></div><div class="about-grid"><section><h2>Частые вопросы</h2><div class="directory-list">${grouped('FAQ').map(article => card(`<article class="article-card"><h3>${article.title}</h3><p>${article.content}</p></article>`)).join('') || card('<p>Вопросы и ответы скоро появятся.</p>')}</div></section><section><h2>Правила и документы</h2><div class="directory-list">${[...grouped('RULE'), ...communityInfo.documents].map(item => card(`<article class="article-card"><h3>${item.title}</h3><p>${item.content || item.description || 'Открыть документ по ссылке.'}</p>${item.url ? `<a class="text-button" href="${item.url}" target="_blank" rel="noreferrer">Открыть документ ${icon('arrow')}</a>` : ''}</article>`)).join('') || card('<p>Документы готовятся к публикации.</p>')}</div></section></div>`);
+}
+
 function requestModal() {
   return `<div class="modal-backdrop"><section class="modal"><button class="modal-close" data-action="close">${icon('close')}</button><p class="eyebrow">Новая заявка</p><h2>Что случилось?</h2><p>Укажите проблему и место — председатель назначит ответственного.</p><label>Описание<input id="issue-title" placeholder="Например, не работает фонарь" /></label><label>Адрес или улица<input id="issue-address" placeholder="ул. Калинина, участок 18" /></label><label>Комментарий<textarea id="issue-description" placeholder="Добавьте детали, которые помогут решить вопрос"></textarea></label><button class="primary full" data-action="submit-request">Отправить заявку</button></section></div>`;
 }
@@ -129,7 +136,7 @@ function loginView() {
 
 function render() {
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Документы': docsView, 'Соседи': neighborsView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 

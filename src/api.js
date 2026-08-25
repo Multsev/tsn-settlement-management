@@ -23,3 +23,4 @@ export const createIssue = (token, issue, options) => request('/issues', { token
 export const loadDirectory = (token, options) => request('/directory', { token, ...options });
 export const loadListings = (token, options) => request('/listings', { token, ...options });
 export const createListing = (token, listing, options) => request('/listings', { token, method: 'POST', body: listing, ...options });
+export const loadCommunityInfo = (token, options) => request('/community-info', { token, ...options });

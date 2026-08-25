@@ -15,11 +15,14 @@ enum ProposalStatus { SUBMITTED REVIEW VOTING APPROVED REJECTED CONVERTED }
 enum VoteChoice { SUPPORT OPPOSE }
 enum ListingType { OFFER REQUEST }
 enum ListingStatus { ACTIVE CLOSED ARCHIVED }
+enum KnowledgeType { ONBOARDING FAQ RULE }
+enum CommunityDocumentType { CHARTER REGULATION CONTRACT PLAN OTHER }
 
 model Community {
   id           String       @id @default(cuid())
   name         String
   slug         String       @unique
+  address      String?
   memberships  Membership[]
   properties   Property[]
   projects     Project[]
@@ -32,8 +35,51 @@ model Community {
   polls        Poll[]
   skills       Skill[]
   listings     Listing[]
+  serviceContacts ServiceContact[]
+  knowledgeArticles KnowledgeArticle[]
+  documents    CommunityDocument[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+model ServiceContact {
+  id          String    @id @default(cuid())
+  communityId String
+  title       String
+  contactName String?
+  phone       String?
+  email       String?
+  note        String?
+  sortOrder   Int       @default(0)
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model KnowledgeArticle {
+  id          String        @id @default(cuid())
+  communityId String
+  type        KnowledgeType
+  title       String
+  content     String
+  sortOrder   Int           @default(0)
+  published   Boolean       @default(true)
+  community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model CommunityDocument {
+  id          String                @id @default(cuid())
+  communityId String
+  type        CommunityDocumentType
+  title       String
+  url         String
+  description String?
+  published   Boolean               @default(true)
+  community   Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 }
 
 model User {
