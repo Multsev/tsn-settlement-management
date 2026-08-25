@@ -187,6 +187,16 @@ npm run db:migrate -- --name complete-global-search-audit-scope
 npm run db:migrate -- --name complete-waste-utilities-scope
 ```
 
+## Файловое и object storage-хранилище
+
+Файлы загружаются через защищенный multipart API, получают SHA-256-контрольную сумму и метаданные, после чего могут быть связаны с обращением, проектом, документом, расходом, решением или подрядчиком. Обычный участник прикрепляет файл к собственному обращению или к поселку; правление работает со всеми сущностями и может ограничить видимость файла только сотрудниками. Скачивание всегда проверяет членство в текущем поселке.
+
+В разработке используется каталог `storage/uploads`, исключенный из Git. Для production задайте `STORAGE_PROVIDER=s3` и параметры `S3_*` из `.env.example`: поддерживаются AWS S3, MinIO и другие S3-совместимые хранилища. Максимальный размер файла — 15 МБ; разрешены PDF, JPEG/PNG/WebP, Word, Excel, TXT и CSV.
+
+```bash
+npm run db:migrate -- --name complete-file-object-storage-scope
+```
+
 ## Структура
 
 - `index.html` — единственная точка подключения приложения.
@@ -203,6 +213,7 @@ npm run db:migrate -- --name complete-waste-utilities-scope
 - `src/management-dashboard-views.js` — аналитика правления, риски и сохраненные отчеты.
 - `src/search-audit-views.js` — сквозной поиск и читаемый журнал изменений.
 - `src/waste-views.js` — правила, площадки, расписание и заявки на дополнительный вывоз.
+- `src/file-views.js` — загрузка, привязки, скачивание и удаление файлов.
 - `server/` — Express API: auth, RBAC-мидлварь, журналы аудита и маршруты MVP.
 - `server/background-jobs.js` — подготовка еженедельного дайджеста и обработка email-очереди.
 - `prisma/schema.prisma` — PostgreSQL-схема, включающая поселки, членство, участки, проекты, заявки и финансы.

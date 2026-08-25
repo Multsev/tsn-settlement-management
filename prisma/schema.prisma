@@ -193,6 +193,21 @@ enum PickupRequestStatus {
   REJECTED
 }
 
+enum FileVisibility {
+  COMMUNITY
+  MANAGEMENT
+}
+
+enum FileAttachmentType {
+  ISSUE
+  PROJECT
+  DOCUMENT
+  EXPENSE
+  DECISION
+  CONTRACTOR
+  COMMUNITY
+}
+
 enum FundraiserStatus {
   ACTIVE
   COMPLETED
@@ -234,6 +249,7 @@ model Community {
   wasteSites              WasteSite[]
   wasteSchedules          WasteSchedule[]
   pickupRequests          ExtraPickupRequest[]
+  storedFiles             StoredFile[]
   fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
   createdAt               DateTime                 @default(now())
@@ -303,8 +319,41 @@ model User {
   sentInvitations  MembershipInvitation[] @relation("InvitationSender")
   generatedReports ManagementReport[]     @relation("ReportAuthor")
   proposals        Proposal[]             @relation("ProposalAuthor")
+  uploadedFiles    StoredFile[]           @relation("FileUploader")
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
+}
+
+model StoredFile {
+  id           String           @id @default(cuid())
+  communityId  String
+  uploadedById String
+  originalName String
+  storageKey   String           @unique
+  provider     String
+  mimeType     String
+  size         Int
+  checksum     String
+  visibility   FileVisibility   @default(COMMUNITY)
+  community    Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  uploadedBy   User             @relation("FileUploader", fields: [uploadedById], references: [id])
+  attachments  FileAttachment[]
+  createdAt    DateTime         @default(now())
+
+  @@index([communityId, createdAt])
+}
+
+model FileAttachment {
+  id         String             @id @default(cuid())
+  fileId     String
+  entityType FileAttachmentType
+  entityId   String
+  label      String?
+  file       StoredFile         @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt  DateTime           @default(now())
+
+  @@unique([fileId, entityType, entityId])
+  @@index([entityType, entityId])
 }
 
 model Membership {

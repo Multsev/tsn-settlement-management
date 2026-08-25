@@ -26,6 +26,7 @@ import { managementDashboardRouter } from './routes/management-dashboard.js';
 import { searchRouter } from './routes/search.js';
 import { auditLogRouter } from './routes/audit-log.js';
 import { wasteRouter } from './routes/waste.js';
+import { filesRouter } from './routes/files.js';
 import { requireMembership } from './middleware/authentication.js';
 import { config } from './config.js';
 
@@ -59,6 +60,7 @@ app.use('/api/management-dashboard', requireMembership, managementDashboardRoute
 app.use('/api/search', requireMembership, searchRouter);
 app.use('/api/audit-log', requireMembership, auditLogRouter);
 app.use('/api/waste', requireMembership, wasteRouter);
+app.use('/api/files', requireMembership, filesRouter);
 app.use('/api/streets', requireMembership, streetsRouter);
 app.use('/api/properties', requireMembership, propertiesRouter);
 app.use('/api/profile', requireMembership, profileRouter);
@@ -66,4 +68,8 @@ app.use('/api/directory', requireMembership, directoryRouter);
 app.use('/api/listings', requireMembership, listingsRouter);
 app.use('/api/proposals', requireMembership, proposalsRouter);
 app.use('/api/polls', requireMembership, pollsRouter);
-app.use((error, _request, response, _next) => { console.error(error); response.status(500).json({ error: 'Внутренняя ошибка сервера.' }); });
+app.use((error, _request, response, _next) => {
+  if (error?.code === 'LIMIT_FILE_SIZE') return response.status(400).json({ error: 'Размер файла должен быть не более 15 МБ.' });
+  console.error(error);
+  response.status(500).json({ error: 'Внутренняя ошибка сервера.' });
+});

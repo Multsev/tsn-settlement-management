@@ -92,3 +92,18 @@ export const createWasteSchedule = (token, data, options) => request('/waste/sch
 export const updateWasteSchedule = (token, scheduleId, data, options) => request(`/waste/schedules/${scheduleId}`, { token, method: 'PATCH', body: data, ...options });
 export const createPickupRequest = (token, data, options) => request('/waste/pickup-requests', { token, method: 'POST', body: data, ...options });
 export const updatePickupRequest = (token, requestId, data, options) => request(`/waste/pickup-requests/${requestId}`, { token, method: 'PATCH', body: data, ...options });
+export const loadFiles = (token, options) => request('/files', { token, ...options });
+export async function uploadFile(token, formData, { fetcher = fetch } = {}) {
+  const response = await fetcher(`${apiBaseUrl}/files`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new ApiError(payload.error || 'Не удалось загрузить файл.', response.status);
+  return payload;
+}
+export const deleteFile = (token, fileId, options) => request(`/files/${fileId}`, { token, method: 'DELETE', ...options });
+export async function downloadFile(token, fileId, name, { fetcher = fetch } = {}) {
+  const response = await fetcher(`${apiBaseUrl}/files/${fileId}/content`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new ApiError(payload.error || 'Не удалось скачать файл.', response.status); }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
