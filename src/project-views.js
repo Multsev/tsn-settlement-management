@@ -54,6 +54,15 @@ function statusHistory(project) {
   return (project.history || []).map(item => `<span>${projectStatusLabels[item.toStatus]}<small>${date(item.createdAt)}</small></span>`).join('');
 }
 
+function institutionalLinks(project, money) {
+  const decisionLabels = { ADOPTED: 'Принято', IN_PROGRESS: 'Исполняется', EXECUTED: 'Исполнено', CANCELLED: 'Отменено' };
+  const decisions = (project.decisions || []).map(item => `<div><strong>${item.title}</strong><small>Решение · ${decisionLabels[item.status] || item.status}</small></div>`).join('');
+  const contractors = (project.contractorLinks || []).map(item => `<div><strong>${item.contractor.name}</strong><small>${item.role || 'Подрядчик'}${item.contractAmount ? ` · ${money(item.contractAmount)}` : ''}${item.warrantyUntil ? ` · гарантия до ${date(item.warrantyUntil)}` : ''}</small></div>`).join('');
+  const documents = (project.documents || []).map(item => `<div><a href="${item.url}" target="_blank" rel="noreferrer">${item.title}</a><small>${item.type}</small></div>`).join('');
+  if (!decisions && !contractors && !documents) return '';
+  return `<section class="update-section"><h3>Решения, документы и подрядчики</h3><div class="institutional-links">${decisions}${contractors}${documents}</div></section>`;
+}
+
 export function projectDetail(project, { money, canWork }) {
   const fundraiserCollected = (project.fundraisers || []).reduce((sum, item) => sum + item.collectedAmount, 0);
   return `<div class="modal-backdrop"><section class="modal project-modal wide-modal"><button class="modal-close" data-action="close">×</button>
@@ -64,6 +73,7 @@ export function projectDetail(project, { money, canWork }) {
     <section class="task-section"><h3>Задачи</h3><div class="task-list">${taskList(project, canWork)}</div></section>
     <section class="update-section"><h3>Ход работ</h3>${updateList(project)}</section>
     ${project.history?.length ? `<section class="update-section"><h3>История статусов</h3><div class="issue-history">${statusHistory(project)}</div></section>` : ''}
+    ${institutionalLinks(project, money)}
     ${project.resultNote ? `<div class="result-note"><strong>Результат проекта</strong><p>${project.resultNote}</p></div>` : ''}
     <div class="issue-photos">${project.beforePhotoUrl ? `<a href="${project.beforePhotoUrl}" target="_blank" rel="noreferrer">Фото до</a>` : ''}${project.afterPhotoUrl ? `<a href="${project.afterPhotoUrl}" target="_blank" rel="noreferrer">Фото после</a>` : ''}</div>
   </section></div>`;

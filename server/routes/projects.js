@@ -13,7 +13,10 @@ const projectInclude = {
   tasks: { orderBy: [{ status: 'asc' }, { dueAt: 'asc' }] },
   history: { orderBy: { createdAt: 'asc' } },
   expenses: { select: { id: true, amount: true, category: true, description: true, spentAt: true } },
-  fundraisers: { select: { id: true, title: true, targetAmount: true, collectedAmount: true, status: true } }
+  fundraisers: { select: { id: true, title: true, targetAmount: true, collectedAmount: true, status: true } },
+  documents: { select: { id: true, title: true, type: true, url: true } },
+  decisions: { select: { id: true, title: true, status: true, decidedAt: true } },
+  contractorLinks: { include: { contractor: { select: { id: true, name: true, rating: true } } } }
 };
 
 projectsRouter.get('/roadmap', async (request, response, next) => {

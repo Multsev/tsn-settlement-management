@@ -13,7 +13,7 @@ communityInfoRouter.get('/', async (request, response, next) => {
     const [contacts, articles, documents] = await Promise.all([
       database.serviceContact.findMany({ where: { communityId }, orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }] }),
       database.knowledgeArticle.findMany({ where: { communityId, published: true }, orderBy: [{ type: 'asc' }, { sortOrder: 'asc' }] }),
-      database.communityDocument.findMany({ where: { communityId, published: true }, orderBy: { title: 'asc' } })
+      database.communityDocument.findMany({ where: { communityId, published: true, type: { in: ['CHARTER', 'REGULATION', 'PLAN'] } }, orderBy: { title: 'asc' } })
     ]);
     response.json({ community, contacts, articles, documents });
   } catch (error) { next(error); }

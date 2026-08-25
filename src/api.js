@@ -48,3 +48,12 @@ export const recordPayment = (token, data, options) => request('/finances/paymen
 export const createExpense = (token, data, options) => request('/finances/expenses', { token, method: 'POST', body: data, ...options });
 export const createFundraiser = (token, data, options) => request('/finances/fundraisers', { token, method: 'POST', body: data, ...options });
 export const contributeToFundraiser = (token, fundraiserId, amount, options) => request(`/finances/fundraisers/${fundraiserId}/contributions`, { token, method: 'POST', body: { amount }, ...options });
+export const loadDecisions = (token, options) => request('/decisions', { token, ...options });
+export const createDecision = (token, data, options) => request('/decisions', { token, method: 'POST', body: data, ...options });
+export const updateDecision = (token, decisionId, data, options) => request(`/decisions/${decisionId}`, { token, method: 'PATCH', body: data, ...options });
+export const loadDocuments = (token, options) => request('/documents', { token, ...options });
+export const createDocument = (token, data, options) => request('/documents', { token, method: 'POST', body: data, ...options });
+export const loadContractors = (token, options) => request('/contractors', { token, ...options });
+export const createContractor = (token, data, options) => request('/contractors', { token, method: 'POST', body: data, ...options });
+export const updateContractor = (token, contractorId, data, options) => request(`/contractors/${contractorId}`, { token, method: 'PATCH', body: data, ...options });
+export const linkContractorProject = (token, contractorId, data, options) => request(`/contractors/${contractorId}/projects`, { token, method: 'POST', body: data, ...options });

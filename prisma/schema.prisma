@@ -97,10 +97,31 @@ enum KnowledgeType {
 
 enum CommunityDocumentType {
   CHARTER
+  PROTOCOL
   REGULATION
   CONTRACT
   PLAN
+  ESTIMATE
+  INVOICE
+  ACT
+  LETTER
+  RESPONSE
   OTHER
+}
+
+enum DecisionType {
+  BOARD
+  GENERAL_MEETING
+  CHAIRMAN
+  POLL
+  OTHER
+}
+
+enum DecisionStatus {
+  ADOPTED
+  IN_PROGRESS
+  EXECUTED
+  CANCELLED
 }
 
 enum FundraiserStatus {
@@ -131,6 +152,8 @@ model Community {
   serviceContacts         ServiceContact[]
   knowledgeArticles       KnowledgeArticle[]
   documents               CommunityDocument[]
+  decisions               Decision[]
+  contractors             Contractor[]
   fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
   createdAt               DateTime                 @default(now())
@@ -165,16 +188,26 @@ model KnowledgeArticle {
 }
 
 model CommunityDocument {
-  id          String                @id @default(cuid())
-  communityId String
-  type        CommunityDocumentType
-  title       String
-  url         String
-  description String?
-  published   Boolean               @default(true)
-  community   Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  id           String                @id @default(cuid())
+  communityId  String
+  projectId    String?
+  decisionId   String?
+  expenseId    String?
+  contractorId String?
+  uploadedById String?
+  type         CommunityDocumentType
+  title        String
+  url          String
+  description  String?
+  documentDate DateTime?
+  published    Boolean               @default(true)
+  community    Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  project      Project?              @relation(fields: [projectId], references: [id])
+  decision     Decision?             @relation(fields: [decisionId], references: [id])
+  expense      Expense?              @relation(fields: [expenseId], references: [id])
+  contractor   Contractor?           @relation(fields: [contractorId], references: [id])
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 }
 
 model User {
@@ -302,38 +335,41 @@ model PropertyAccessRequest {
 }
 
 model Project {
-  id             String           @id @default(cuid())
-  communityId    String
-  streetId       String?
-  title          String
-  description    String
-  problem        String?
-  expectedResult String?
-  category       String
-  status         ProjectStatus    @default(IDEA)
-  priority       ProjectPriority  @default(NORMAL)
-  responsible    String?
-  fundingSource  String?
-  budget         Int              @default(0)
-  collected      Int              @default(0)
-  spent          Int              @default(0)
-  progress       Int              @default(0)
-  startAt        DateTime?
-  deadline       DateTime?
-  beforePhotoUrl String?
-  afterPhotoUrl  String?
-  resultNote     String?
-  community      Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  street         Street?          @relation(fields: [streetId], references: [id])
-  updates        ProjectUpdate[]
-  tasks          ProjectTask[]
-  history        ProjectHistory[]
-  expenses       Expense[]
-  fundraisers    Fundraiser[]
-  proposal       Proposal?        @relation(fields: [proposalId], references: [id])
-  proposalId     String?          @unique
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id              String              @id @default(cuid())
+  communityId     String
+  streetId        String?
+  title           String
+  description     String
+  problem         String?
+  expectedResult  String?
+  category        String
+  status          ProjectStatus       @default(IDEA)
+  priority        ProjectPriority     @default(NORMAL)
+  responsible     String?
+  fundingSource   String?
+  budget          Int                 @default(0)
+  collected       Int                 @default(0)
+  spent           Int                 @default(0)
+  progress        Int                 @default(0)
+  startAt         DateTime?
+  deadline        DateTime?
+  beforePhotoUrl  String?
+  afterPhotoUrl   String?
+  resultNote      String?
+  community       Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  street          Street?             @relation(fields: [streetId], references: [id])
+  updates         ProjectUpdate[]
+  tasks           ProjectTask[]
+  history         ProjectHistory[]
+  documents       CommunityDocument[]
+  decisions       Decision[]
+  contractorLinks ProjectContractor[]
+  expenses        Expense[]
+  fundraisers     Fundraiser[]
+  proposal        Proposal?           @relation(fields: [proposalId], references: [id])
+  proposalId      String?             @unique
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 }
 
 model Proposal {
@@ -365,7 +401,62 @@ model Poll {
   community       Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   proposal        Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   votes           Vote[]
+  decision        Decision?
   createdAt       DateTime  @default(now())
+}
+
+model Decision {
+  id             String              @id @default(cuid())
+  communityId    String
+  pollId         String?             @unique
+  title          String
+  description    String
+  basis          String?
+  type           DecisionType
+  status         DecisionStatus      @default(ADOPTED)
+  adoptedBy      String
+  supportPercent Int?
+  decidedAt      DateTime
+  executionNote  String?
+  community      Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  poll           Poll?               @relation(fields: [pollId], references: [id])
+  projects       Project[]
+  documents      CommunityDocument[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model Contractor {
+  id           String              @id @default(cuid())
+  communityId  String
+  name         String
+  contactName  String?
+  phone        String?
+  email        String?
+  services     String
+  rating       Int                 @default(0)
+  note         String?
+  community    Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  projectLinks ProjectContractor[]
+  documents    CommunityDocument[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([communityId, name])
+}
+
+model ProjectContractor {
+  projectId      String
+  contractorId   String
+  role           String?
+  contractNumber String?
+  contractAmount Int?
+  warrantyUntil  DateTime?
+  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor     Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@id([projectId, contractorId])
 }
 
 model Vote {
@@ -480,16 +571,17 @@ model Payment {
 }
 
 model Expense {
-  id          String    @id @default(cuid())
+  id          String              @id @default(cuid())
   communityId String
   projectId   String?
   amount      Int
   category    String
   description String
   recipient   String
-  spentAt     DateTime  @default(now())
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  project     Project?  @relation(fields: [projectId], references: [id])
+  spentAt     DateTime            @default(now())
+  community   Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  project     Project?            @relation(fields: [projectId], references: [id])
+  documents   CommunityDocument[]
 }
 
 model Fundraiser {

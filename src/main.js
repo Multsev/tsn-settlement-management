@@ -1,17 +1,18 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { addProjectUpdate, contributeToFundraiser, createCharge, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProjectTask, createProperty, createStreet, loadCommunityInfo, loadDashboard, loadDirectory, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, login, openVote, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateIssue, updateProject, updateProjectTask } from './api.js';
+import { addProjectUpdate, contributeToFundraiser, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProjectTask, createProperty, createStreet, linkContractorProject, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDirectory, loadDocuments, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, login, openVote, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateContractor, updateDecision, updateIssue, updateProject, updateProjectTask } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 import { financeAdminContent, financeResidentContent } from './finance-views.js';
 import { issueManagementContent, streetsContent } from './community-operations-views.js';
 import { projectDetail, projectOperationsContent, projectPriorityLabels, projectStatusLabels, roadmapContent } from './project-views.js';
+import { contractorsContent, governanceContent, governanceModal } from './governance-views.js';
 
 const icon = (name) => ({
   home: '⌂', projects: '◫', finance: '₽', requests: '◌', docs: '▤', more: '•••', bell: '♧', arrow: '→', close: '×', plus: '+'
 }[name] || '•');
 
 const navigation = [
-  ['home', 'Главная'], ['projects', 'Проекты'], ['more', 'Дорожная карта'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Соседи'], ['more', 'О поселке']
+  ['home', 'Главная'], ['projects', 'Проекты'], ['more', 'Дорожная карта'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Подрядчики'], ['more', 'Соседи'], ['more', 'О поселке']
 ];
 
 let active = 'Главная';
@@ -33,9 +34,13 @@ let streetData = [];
 let propertyState = { properties: [], accessRequests: [], availableProperties: [] };
 let roadmapData = [];
 let projectAttentionData = [];
+let decisionData = [];
+let documentData = [];
+let contractorData = [];
 let expenseFilter = '';
 const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
 const worksWithProjects = () => ['assistant_chairman', 'board_member', 'chairman', 'administrator'].includes(session?.role);
+const managesGovernance = () => ['board_member', 'chairman', 'administrator'].includes(session?.role);
 let loading = false;
 let loadError = '';
 
@@ -55,7 +60,7 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([])]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention, serverDecisions, serverDocuments, serverContractors] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([]), loadDecisions(session.token), loadDocuments(session.token), loadContractors(session.token)]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
@@ -70,6 +75,9 @@ async function loadApplicationData() {
     propertyState = serverProperties;
     roadmapData = serverRoadmap;
     projectAttentionData = serverProjectAttention;
+    decisionData = serverDecisions;
+    documentData = serverDocuments;
+    contractorData = serverContractors;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -132,7 +140,11 @@ function streetsView() {
 }
 
 function docsView() {
- return layout(`<header class="topbar"><div><p class="eyebrow">Единый источник информации</p><h1>Документы и решения</h1></div></header><div class="docs-grid">${[['Решение №32','Установка второго шлагбаума','15 июня 2026','Решение принято · проект в работе'],['Акт выполненных работ','Мусорная площадка','12 августа 2026','Подписан председателем и подрядчиком'],['Смета','Ремонт Центральной улицы','4 августа 2026','Связана с проектом']].map(d => card(`<article class="doc"><span class="doc-icon">▤</span><div><small>${d[0]}</small><h2>${d[1]}</h2><p>${d[2]}</p><span class="doc-state">${d[3]}</span></div><button class="round-arrow">${icon('arrow')}</button></article>`)).join('')}</div>`);
+ return layout(governanceContent({ decisions: decisionData, documents: documentData, canEdit: worksWithProjects(), card }));
+}
+
+function contractorsView() {
+  return layout(contractorsContent({ contractors: contractorData, canEdit: managesGovernance(), card, money }));
 }
 
 function neighborsView() {
@@ -196,7 +208,7 @@ function loginView() {
 
 function render() {
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Финансы': financeView, 'Заявки': requestsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Финансы': financeView, 'Заявки': requestsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Подрядчики': contractorsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -212,6 +224,12 @@ document.addEventListener('click', async event => {
   if (action === 'edit-project') { modal = projectWorkModal('edit', event.target.closest('[data-project-id]').dataset.projectId); render(); }
   if (action === 'new-project-task') { modal = projectWorkModal('task', event.target.closest('[data-project-id]').dataset.projectId); render(); }
   if (action === 'new-project-update') { modal = projectWorkModal('update', event.target.closest('[data-project-id]').dataset.projectId); render(); }
+  if (action === 'new-decision') { modal = governanceModal('decision', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses }); render(); }
+  if (action === 'manage-decision') { modal = governanceModal('decision-status', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses, decisionId: event.target.closest('[data-decision-id]').dataset.decisionId }); render(); }
+  if (action === 'new-document') { modal = governanceModal('document', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses }); render(); }
+  if (action === 'new-contractor') { modal = governanceModal('contractor', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses }); render(); }
+  if (action === 'edit-contractor') { modal = governanceModal('contractor-edit', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses, contractorId: event.target.closest('[data-contractor-id]').dataset.contractorId }); render(); }
+  if (action === 'link-contractor') { modal = governanceModal('contractor-link', { projects: projectData, decisions: decisionData, contractors: contractorData, expenses: financeOverview.expenses, contractorId: event.target.closest('[data-contractor-id]').dataset.contractorId }); render(); }
   if (action?.startsWith('finance-') && !action.startsWith('submit-')) { modal = financeModal(action.replace('finance-', '')); render(); }
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
@@ -261,6 +279,33 @@ document.addEventListener('click', async event => {
   if (action === 'advance-task') {
     const target = event.target.closest('[data-task-id]');
     try { await updateProjectTask(session.token, target.dataset.projectId, target.dataset.taskId, { status: target.dataset.taskStatus }); modal = null; active = 'Проекты'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-decision') {
+    const supportValue = document.querySelector('#decision-support').value;
+    const projectId = document.querySelector('#decision-project').value;
+    try { await createDecision(session.token, { title: document.querySelector('#decision-title').value, description: document.querySelector('#decision-description').value, basis: document.querySelector('#decision-basis').value, type: document.querySelector('#decision-type').value, adoptedBy: document.querySelector('#decision-adopted-by').value, decidedAt: document.querySelector('#decision-date').value || null, supportPercent: supportValue === '' ? null : Number(supportValue), projectIds: projectId ? [projectId] : [] }); modal = null; active = 'Документы'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-decision-status') {
+    try { await updateDecision(session.token, event.target.closest('[data-decision-id]').dataset.decisionId, { status: document.querySelector('#decision-status').value, executionNote: document.querySelector('#decision-execution').value }); modal = null; active = 'Документы'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-document') {
+    try { await createDocument(session.token, { type: document.querySelector('#document-type').value, title: document.querySelector('#document-title').value, description: document.querySelector('#document-description').value, url: document.querySelector('#document-url').value, documentDate: document.querySelector('#document-date').value || null, projectId: document.querySelector('#document-project').value || null, decisionId: document.querySelector('#document-decision').value || null, expenseId: document.querySelector('#document-expense').value || null, contractorId: document.querySelector('#document-contractor').value || null }); modal = null; active = 'Документы'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-contractor') {
+    try { await createContractor(session.token, { name: document.querySelector('#contractor-name').value, services: document.querySelector('#contractor-services').value, contactName: document.querySelector('#contractor-contact').value, phone: document.querySelector('#contractor-phone').value, email: document.querySelector('#contractor-email').value, rating: Number(document.querySelector('#contractor-rating').value), note: document.querySelector('#contractor-note').value }); modal = null; active = 'Подрядчики'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-contractor-edit') {
+    try { await updateContractor(session.token, event.target.closest('[data-contractor-id]').dataset.contractorId, { name: document.querySelector('#contractor-name').value, services: document.querySelector('#contractor-services').value, contactName: document.querySelector('#contractor-contact').value, phone: document.querySelector('#contractor-phone').value, email: document.querySelector('#contractor-email').value, rating: Number(document.querySelector('#contractor-rating').value), note: document.querySelector('#contractor-note').value }); modal = null; active = 'Подрядчики'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-contractor-link') {
+    const amountValue = document.querySelector('#contract-amount').value;
+    try { await linkContractorProject(session.token, event.target.closest('[data-contractor-id]').dataset.contractorId, { projectId: document.querySelector('#contract-project').value, role: document.querySelector('#contract-role').value, contractNumber: document.querySelector('#contract-number').value, contractAmount: amountValue === '' ? null : Number(amountValue), warrantyUntil: document.querySelector('#contract-warranty').value || null }); modal = null; active = 'Подрядчики'; await loadApplicationData(); }
     catch (error) { loadError = error.message; modal = null; render(); }
   }
   if (action === 'submit-listing') {
