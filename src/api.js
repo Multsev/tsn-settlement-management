@@ -80,3 +80,6 @@ export const loadSurveys = (token, options) => request('/surveys', { token, ...o
 export const createSurvey = (token, data, options) => request('/surveys', { token, method: 'POST', body: data, ...options });
 export const updateSurveyStatus = (token, surveyId, status, options) => request(`/surveys/${surveyId}/status`, { token, method: 'PATCH', body: { status }, ...options });
 export const respondToSurvey = (token, surveyId, optionId, options) => request(`/surveys/${surveyId}/response`, { token, method: 'PUT', body: { optionId }, ...options });
+export const loadManagementDashboard = (token, options) => request('/management-dashboard', { token, ...options });
+export const loadManagementReports = (token, options) => request('/management-dashboard/reports', { token, ...options });
+export const createManagementReport = (token, data, options) => request('/management-dashboard/reports', { token, method: 'POST', body: data, ...options });

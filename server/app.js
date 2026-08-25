@@ -22,6 +22,7 @@ import { membersRouter } from './routes/members.js';
 import { accountRouter } from './routes/account.js';
 import { mapRouter } from './routes/map.js';
 import { surveysRouter } from './routes/surveys.js';
+import { managementDashboardRouter } from './routes/management-dashboard.js';
 import { requireMembership } from './middleware/authentication.js';
 import { config } from './config.js';
 
@@ -51,6 +52,7 @@ app.use('/api/members', requireMembership, membersRouter);
 app.use('/api/account', requireMembership, accountRouter);
 app.use('/api/map', requireMembership, mapRouter);
 app.use('/api/surveys', requireMembership, surveysRouter);
+app.use('/api/management-dashboard', requireMembership, managementDashboardRouter);
 app.use('/api/streets', requireMembership, streetsRouter);
 app.use('/api/properties', requireMembership, propertiesRouter);
 app.use('/api/profile', requireMembership, profileRouter);
