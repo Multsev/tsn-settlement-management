@@ -10,6 +10,8 @@ import { listingsRouter } from './routes/listings.js';
 import { profileRouter } from './routes/profile.js';
 import { pollsRouter } from './routes/polls.js';
 import { proposalsRouter } from './routes/proposals.js';
+import { propertiesRouter } from './routes/properties.js';
+import { streetsRouter } from './routes/streets.js';
 import { requireMembership } from './middleware/authentication.js';
 import { config } from './config.js';
 
@@ -18,7 +20,7 @@ app.use(express.json());
 app.use((request, response, next) => {
   if (request.headers.origin === config.webOrigin) response.setHeader('Access-Control-Allow-Origin', config.webOrigin);
   response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   if (request.method === 'OPTIONS') return response.sendStatus(204);
   next();
 });
@@ -29,6 +31,8 @@ app.use('/api/dashboard', requireMembership, dashboardRouter);
 app.use('/api/finances', requireMembership, financesRouter);
 app.use('/api/projects', requireMembership, projectsRouter);
 app.use('/api/issues', requireMembership, issuesRouter);
+app.use('/api/streets', requireMembership, streetsRouter);
+app.use('/api/properties', requireMembership, propertiesRouter);
 app.use('/api/profile', requireMembership, profileRouter);
 app.use('/api/directory', requireMembership, directoryRouter);
 app.use('/api/listings', requireMembership, listingsRouter);

@@ -37,6 +37,12 @@ enum IssueStatus {
   CLOSED
 }
 
+enum PropertyAccessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ChargeStatus {
   OPEN
   PAID
@@ -90,29 +96,31 @@ enum FundraiserStatus {
 }
 
 model Community {
-  id           String       @id @default(cuid())
-  name         String
-  slug         String       @unique
-  address      String?
-  memberships  Membership[]
-  properties   Property[]
-  projects     Project[]
-  issues       Issue[]
-  charges      Charge[]
-  payments     Payment[]
-  expenses     Expense[]
-  auditLogs    AuditLog[]
-  proposals    Proposal[]
-  polls        Poll[]
-  skills       Skill[]
-  listings     Listing[]
-  serviceContacts ServiceContact[]
-  knowledgeArticles KnowledgeArticle[]
-  documents    CommunityDocument[]
-  fundraisers  Fundraiser[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  slug                    String                   @unique
+  address                 String?
+  memberships             Membership[]
+  properties              Property[]
+  streets                 Street[]
+  propertyAccessRequests  PropertyAccessRequest[]
+  projects                Project[]
+  issues                  Issue[]
+  charges                 Charge[]
+  payments                Payment[]
+  expenses                Expense[]
+  auditLogs               AuditLog[]
+  proposals               Proposal[]
+  polls                   Poll[]
+  skills                  Skill[]
+  listings                Listing[]
+  serviceContacts         ServiceContact[]
+  knowledgeArticles       KnowledgeArticle[]
+  documents               CommunityDocument[]
+  fundraisers             Fundraiser[]
   fundraiserContributions FundraiserContribution[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 }
 
 model ServiceContact {
@@ -171,22 +179,24 @@ model User {
 }
 
 model Membership {
-  id          String    @id @default(cuid())
-  userId      String
-  communityId String
-  role        Role      @default(resident)
-  approvedAt  DateTime?
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  properties  Property[]
-  votes       Vote[]
-  skills      MemberSkill[]
-  listings    Listing[]
+  id                      String                   @id @default(cuid())
+  userId                  String
+  communityId             String
+  role                    Role                     @default(resident)
+  approvedAt              DateTime?
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community               Community                @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  properties              Property[]
+  votes                   Vote[]
+  skills                  MemberSkill[]
+  listings                Listing[]
   fundraiserContributions FundraiserContribution[]
-  publicProfile Boolean @default(false)
-  publicPhone   Boolean @default(false)
-  publicEmail   Boolean @default(false)
-  contactPhone  String?
+  propertyAccessRequests  PropertyAccessRequest[]
+  publicProfile           Boolean                  @default(false)
+  publicPhone             Boolean                  @default(false)
+  publicEmail             Boolean                  @default(false)
+  contactPhone            String?
+
   @@unique([userId, communityId])
 }
 
@@ -197,6 +207,7 @@ model Skill {
   normalized  String
   community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
   members     MemberSkill[]
+
   @@unique([communityId, normalized])
 }
 
@@ -206,6 +217,7 @@ model MemberSkill {
   isPublic     Boolean    @default(true)
   membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
   skill        Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
   @@id([membershipId, skillId])
 }
 
@@ -218,44 +230,82 @@ model Listing {
   title        String
   description  String
   category     String
-  community    Community    @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  community    Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  membership   Membership    @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Property {
-  id           String      @id @default(cuid())
-  communityId  String
-  membershipId String?
-  number       String
-  street       String
-  community    Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  membership   Membership? @relation(fields: [membershipId], references: [id])
-  charges      Charge[]
+  id             String                  @id @default(cuid())
+  communityId    String
+  membershipId   String?
+  number         String
+  street         String
+  streetId       String?
+  community      Community               @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  membership     Membership?             @relation(fields: [membershipId], references: [id])
+  streetRecord   Street?                 @relation(fields: [streetId], references: [id])
+  charges        Charge[]
+  accessRequests PropertyAccessRequest[]
+
   @@unique([communityId, number])
 }
 
+model Street {
+  id               String     @id @default(cuid())
+  communityId      String
+  name             String
+  roadCondition    String?
+  lightingCoverage Int        @default(0)
+  note             String?
+  community        Community  @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  properties       Property[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([communityId, name])
+}
+
+model PropertyAccessRequest {
+  id           String               @id @default(cuid())
+  communityId  String
+  membershipId String
+  propertyId   String
+  status       PropertyAccessStatus @default(PENDING)
+  note         String?
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  community    Community            @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  membership   Membership           @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  property     Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([communityId, status])
+}
+
 model Project {
-  id          String        @id @default(cuid())
+  id          String          @id @default(cuid())
   communityId String
   title       String
   description String
   category    String
-  status      ProjectStatus @default(IDEA)
-  budget      Int           @default(0)
-  collected   Int           @default(0)
-  spent       Int           @default(0)
-  progress    Int           @default(0)
+  status      ProjectStatus   @default(IDEA)
+  budget      Int             @default(0)
+  collected   Int             @default(0)
+  spent       Int             @default(0)
+  progress    Int             @default(0)
   deadline    DateTime?
-  community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  community   Community       @relation(fields: [communityId], references: [id], onDelete: Cascade)
   updates     ProjectUpdate[]
   expenses    Expense[]
   fundraisers Fundraiser[]
-  proposal    Proposal?     @relation(fields: [proposalId], references: [id])
-  proposalId  String?       @unique
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  proposal    Proposal?       @relation(fields: [proposalId], references: [id])
+  proposalId  String?         @unique
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 model Proposal {
@@ -276,18 +326,18 @@ model Proposal {
 }
 
 model Poll {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   communityId     String
-  proposalId      String   @unique
+  proposalId      String    @unique
   eligibleVoters  Int
-  quorumPercent   Int      @default(30)
-  approvalPercent Int      @default(60)
-  opensAt         DateTime @default(now())
+  quorumPercent   Int       @default(30)
+  approvalPercent Int       @default(60)
+  opensAt         DateTime  @default(now())
   closesAt        DateTime
   community       Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  proposal        Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposal        Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   votes           Vote[]
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 }
 
 model Vote {
@@ -299,6 +349,7 @@ model Vote {
   membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
   @@unique([pollId, membershipId])
 }
 
@@ -311,21 +362,37 @@ model ProjectUpdate {
 }
 
 model Issue {
-  id          String      @id @default(cuid())
-  communityId String
-  authorId    String
-  number      Int
-  title       String
-  description String?
-  address     String
-  status      IssueStatus @default(NEW)
-  dueAt       DateTime?
-  responsible String?
-  community   Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  author      User        @relation("IssueAuthor", fields: [authorId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id             String         @id @default(cuid())
+  communityId    String
+  authorId       String
+  number         Int
+  title          String
+  description    String?
+  address        String
+  status         IssueStatus    @default(NEW)
+  dueAt          DateTime?
+  responsible    String?
+  beforePhotoUrl String?
+  afterPhotoUrl  String?
+  resultNote     String?
+  community      Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  author         User           @relation("IssueAuthor", fields: [authorId], references: [id])
+  history        IssueHistory[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
   @@unique([communityId, number])
+}
+
+model IssueHistory {
+  id         String       @id @default(cuid())
+  issueId    String
+  actorId    String
+  fromStatus IssueStatus?
+  toStatus   IssueStatus
+  comment    String?
+  issue      Issue        @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
 }
 
 model Charge {
@@ -370,20 +437,20 @@ model Expense {
 }
 
 model Fundraiser {
-  id              String           @id @default(cuid())
+  id              String                   @id @default(cuid())
   communityId     String
   projectId       String?
   title           String
   description     String
   targetAmount    Int
-  collectedAmount Int              @default(0)
+  collectedAmount Int                      @default(0)
   deadline        DateTime?
-  status          FundraiserStatus @default(ACTIVE)
-  community       Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  project         Project?         @relation(fields: [projectId], references: [id])
+  status          FundraiserStatus         @default(ACTIVE)
+  community       Community                @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  project         Project?                 @relation(fields: [projectId], references: [id])
   contributions   FundraiserContribution[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 }
 
 model FundraiserContribution {

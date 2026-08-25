@@ -1,15 +1,16 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { contributeToFundraiser, createCharge, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, loadCommunityInfo, loadDashboard, loadDirectory, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjects, loadProposals, login, openVote, recordPayment } from './api.js';
+import { contributeToFundraiser, createCharge, createExpense, createFundraiser, createIssue, createListing, createProjectFromProposal, createProperty, createStreet, loadCommunityInfo, loadDashboard, loadDirectory, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadMyFinances, loadProjects, loadProperties, loadProposals, loadStreets, login, openVote, recordPayment, requestPropertyAccess, reviewPropertyAccess, updateIssue } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 import { financeAdminContent, financeResidentContent } from './finance-views.js';
+import { issueManagementContent, streetsContent } from './community-operations-views.js';
 
 const icon = (name) => ({
   home: '⌂', projects: '◫', finance: '₽', requests: '◌', docs: '▤', more: '•••', bell: '♧', arrow: '→', close: '×', plus: '+'
 }[name] || '•');
 
 const navigation = [
-  ['home', 'Главная'], ['projects', 'Проекты'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['docs', 'Документы'], ['more', 'Соседи'], ['more', 'О поселке']
+  ['home', 'Главная'], ['projects', 'Проекты'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Соседи'], ['more', 'О поселке']
 ];
 
 let active = 'Главная';
@@ -27,6 +28,8 @@ let proposalData = [];
 let myFinances = { charges: [], payments: [] };
 let financeOverview = { totals: { balance: 0, received: 0, spent: 0, debt: 0 }, expenses: [], fundraisers: [] };
 let financeOptions = { memberships: [], projects: [], openCharges: [] };
+let streetData = [];
+let propertyState = { properties: [], accessRequests: [], availableProperties: [] };
 let expenseFilter = '';
 const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
 let loading = false;
@@ -41,14 +44,14 @@ function normalizedProjects(items) {
 }
 
 function normalizedIssues(items) {
-  return items.map(issue => ({ ...issue, id: `REQ-${issue.number}`, status: issueStatus[issue.status] || issue.status, due: dateLabel(issue.dueAt), responsible: issue.responsible || 'Будет назначен' }));
+  return items.map(issue => ({ ...issue, databaseId: issue.id, rawStatus: issue.status, id: `REQ-${issue.number}`, status: issueStatus[issue.status] || issue.status, due: dateLabel(issue.dueAt), responsible: issue.responsible || 'Будет назначен' }));
 }
 
 async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions)]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token)]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects) };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
@@ -59,6 +62,8 @@ async function loadApplicationData() {
     myFinances = serverMyFinances;
     financeOverview = serverFinanceOverview;
     financeOptions = serverFinanceOptions;
+    streetData = serverStreets;
+    propertyState = serverProperties;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -109,7 +114,11 @@ function financeView() {
 }
 
 function requestsView() {
- return layout(`<header class="topbar"><div><p class="eyebrow">Обращения жителей</p><h1>Мои заявки</h1></div><button class="primary" data-action="request">${icon('plus')} Новая заявка</button></header><p class="view-lead">Сообщите о проблеме — мы назначим ответственного и покажем статус работ.</p><div class="request-list">${issueData.map(i => card(`<article class="request-card"><div class="request-id">${i.id}</div><div><h2>${i.title}</h2><p>${i.address}</p><div class="project-meta"><span>◉ ${i.responsible}</span><span>◷ Срок: ${i.due}</span></div></div><span class="badge orange">${i.status}</span><button class="round-arrow">${icon('arrow')}</button></article>`)).join('')}</div>`);
+ return layout(`<header class="topbar"><div><p class="eyebrow">Обращения жителей</p><h1>${managesCommunity() ? 'Все обращения' : 'Мои заявки'}</h1></div><button class="primary" data-action="request">${icon('plus')} Новая заявка</button></header><p class="view-lead">Сообщите о проблеме — мы назначим ответственного и покажем статус работ.</p><div class="request-list">${issueData.length ? issueData.map(i => card(`<article class="issue-detail"><div class="request-card"><div class="request-id">${i.id}</div><div><h2>${i.title}</h2><p>${i.address}</p><div class="project-meta"><span>◉ ${i.responsible}</span><span>◷ Срок: ${i.due}</span></div></div><span class="badge orange">${i.status}</span>${managesCommunity() ? `<button class="small-button" data-action="manage-issue" data-issue-id="${i.databaseId}">Управлять</button>` : ''}</div>${i.description ? `<p>${i.description}</p>` : ''}${i.resultNote ? `<div class="result-note"><strong>Результат</strong><p>${i.resultNote}</p></div>` : ''}<div class="issue-history">${(i.history || []).map(item => `<span>${issueStatus[item.toStatus] || item.toStatus}<small>${new Date(item.createdAt).toLocaleDateString('ru-RU')}</small></span>`).join('')}</div>${i.beforePhotoUrl || i.afterPhotoUrl ? `<div class="issue-photos">${i.beforePhotoUrl ? `<a href="${i.beforePhotoUrl}" target="_blank" rel="noreferrer">Фото до</a>` : ''}${i.afterPhotoUrl ? `<a href="${i.afterPhotoUrl}" target="_blank" rel="noreferrer">Фото после</a>` : ''}</div>` : ''}</article>`)).join('') : card('<p>Обращений пока нет.</p>')}</div>`);
+}
+
+function streetsView() {
+  return layout(streetsContent({ card, streets: streetData, propertyState, managesCommunity: managesCommunity() }));
 }
 
 function docsView() {
@@ -130,11 +139,19 @@ function aboutView() {
 
 function managementView() {
  const pending = proposalData.filter(p => ['SUBMITTED', 'REVIEW', 'VOTING'].includes(p.status));
- return layout(`<header class="topbar"><div><p class="eyebrow">Операционная панель</p><h1>Управление поселком</h1></div></header><div class="metric-grid"><div class="metric"><span>Инициативы в работе</span><strong>${pending.length}</strong><small>Требуют решения</small></div><div class="metric"><span>Активные проекты</span><strong>${projectData.length}</strong><small>Статусы и бюджеты</small></div><div class="metric"><span>Новые заявки</span><strong>${issueData.length}</strong><small>Нужен ответственный</small></div></div><h2>Инициативы и голосования</h2><div class="projects-list">${pending.length ? pending.map(p => card(`<article class="project-card"><div><span class="badge orange">${p.status}</span><h2>${p.title}</h2><p>${p.description}</p><div class="project-meta"><span>${p.category}</span><span>${p.preliminaryBudget ? money(p.preliminaryBudget) : 'Бюджет уточняется'}</span></div></div><div class="project-budget">${p.poll ? `<span>Голосование до ${new Date(p.poll.closesAt).toLocaleDateString('ru-RU')}</span><strong>${p.pollResult?.supportVotes || 0} за</strong><button class="text-button" data-action="project-from-proposal" data-proposal="${p.id}">Создать проект ${icon('arrow')}</button>` : `<button class="primary" data-action="open-vote" data-proposal="${p.id}">Открыть голосование</button>`}</div></article>`)).join('') : card('<p>Нет инициатив, требующих внимания.</p>')}</div>`);
+ return layout(`<header class="topbar"><div><p class="eyebrow">Операционная панель</p><h1>Управление поселком</h1></div></header><div class="metric-grid"><div class="metric"><span>Инициативы в работе</span><strong>${pending.length}</strong><small>Требуют решения</small></div><div class="metric"><span>Активные проекты</span><strong>${projectData.length}</strong><small>Статусы и бюджеты</small></div><div class="metric"><span>Новые заявки</span><strong>${issueData.filter(issue => issue.rawStatus === 'NEW').length}</strong><small>Нужен ответственный</small></div></div>${issueManagementContent({ card, issues: issueData })}<section class="management-section"><h2>Инициативы и голосования</h2><div class="projects-list">${pending.length ? pending.map(p => card(`<article class="project-card"><div><span class="badge orange">${p.status}</span><h2>${p.title}</h2><p>${p.description}</p><div class="project-meta"><span>${p.category}</span><span>${p.preliminaryBudget ? money(p.preliminaryBudget) : 'Бюджет уточняется'}</span></div></div><div class="project-budget">${p.poll ? `<span>Голосование до ${new Date(p.poll.closesAt).toLocaleDateString('ru-RU')}</span><strong>${p.pollResult?.supportVotes || 0} за</strong><button class="text-button" data-action="project-from-proposal" data-proposal="${p.id}">Создать проект ${icon('arrow')}</button>` : `<button class="primary" data-action="open-vote" data-proposal="${p.id}">Открыть голосование</button>`}</div></article>`)).join('') : card('<p>Нет инициатив, требующих внимания.</p>')}</div></section>`);
 }
 
 function requestModal() {
-  return `<div class="modal-backdrop"><section class="modal"><button class="modal-close" data-action="close">${icon('close')}</button><p class="eyebrow">Новая заявка</p><h2>Что случилось?</h2><p>Укажите проблему и место — председатель назначит ответственного.</p><label>Описание<input id="issue-title" placeholder="Например, не работает фонарь" /></label><label>Адрес или улица<input id="issue-address" placeholder="ул. Калинина, участок 18" /></label><label>Комментарий<textarea id="issue-description" placeholder="Добавьте детали, которые помогут решить вопрос"></textarea></label><button class="primary full" data-action="submit-request">Отправить заявку</button></section></div>`;
+  return `<div class="modal-backdrop"><section class="modal"><button class="modal-close" data-action="close">${icon('close')}</button><p class="eyebrow">Новая заявка</p><h2>Что случилось?</h2><p>Укажите проблему и место — председатель назначит ответственного.</p><label>Описание<input id="issue-title" placeholder="Например, не работает фонарь" /></label><label>Адрес или улица<input id="issue-address" placeholder="ул. Калинина, участок 18" /></label><label>Комментарий<textarea id="issue-description" placeholder="Добавьте детали, которые помогут решить вопрос"></textarea></label><label>Ссылка на фото до работ<input id="issue-before-photo" type="url" placeholder="https://…" /></label><button class="primary full" data-action="submit-request">Отправить заявку</button></section></div>`;
+}
+
+function operationsModal(type, issueId) {
+  const close = `<button class="modal-close" data-action="close">${icon('close')}</button>`;
+  if (type === 'street') return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">Территория</p><h2>Новая улица</h2><label>Название<input id="street-name" placeholder="ул. Центральная" /></label><label>Состояние дороги<input id="street-road" placeholder="Хорошее / требуется ремонт" /></label><label>Освещение, %<input id="street-lighting" type="number" min="0" max="100" value="0" /></label><label>Примечание<textarea id="street-note"></textarea></label><button class="primary full" data-action="submit-street">Добавить улицу</button></section></div>`;
+  if (type === 'property') return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">Реестр</p><h2>Новый участок</h2><label>Улица<select id="property-street">${streetData.map(street => `<option value="${street.id}">${street.name}</option>`).join('')}</select></label><label>Номер участка<input id="property-number" /></label><button class="primary full" data-action="submit-property">Добавить участок</button></section></div>`;
+  const issue = issueData.find(item => item.databaseId === issueId);
+  return `<div class="modal-backdrop"><section class="modal">${close}<p class="eyebrow">${issue.id} · ${issue.status}</p><h2>${issue.title}</h2><label>Новый статус<select id="issue-status">${Object.entries(issueStatus).map(([value, label]) => `<option value="${value}" ${value === issue.rawStatus ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label>Ответственный<input id="issue-responsible" value="${issue.responsible === 'Будет назначен' ? '' : issue.responsible}" /></label><label>Срок<input id="issue-due" type="date" value="${issue.dueAt ? issue.dueAt.slice(0, 10) : ''}" /></label><label>Комментарий к статусу<textarea id="issue-comment"></textarea></label><label>Результат работ<textarea id="issue-result">${issue.resultNote || ''}</textarea></label><label>Ссылка на фото после<input id="issue-after-photo" type="url" value="${issue.afterPhotoUrl || ''}" /></label><button class="primary full" data-action="submit-issue-update" data-issue-id="${issue.databaseId}">Сохранить</button></section></div>`;
 }
 
 function listingModal() {
@@ -161,7 +178,7 @@ function loginView() {
 
 function render() {
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
+  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Финансы': financeView, 'Заявки': requestsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -171,6 +188,9 @@ document.addEventListener('click', async event => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'request') { modal = requestModal(); render(); }
   if (action === 'listing') { modal = listingModal(); render(); }
+  if (action === 'new-street') { modal = operationsModal('street'); render(); }
+  if (action === 'new-property') { modal = operationsModal('property'); render(); }
+  if (action === 'manage-issue') { modal = operationsModal('issue', event.target.closest('[data-issue-id]').dataset.issueId); render(); }
   if (action?.startsWith('finance-') && !action.startsWith('submit-')) { modal = financeModal(action.replace('finance-', '')); render(); }
   if (action === 'close') { modal = null; render(); }
   if (action === 'logout') { clearSession(); session = null; currentUser = null; modal = null; loadError = ''; render(); }
@@ -178,9 +198,30 @@ document.addEventListener('click', async event => {
   if (action === 'open-vote') { try { await openVote(session.token, event.target.closest('[data-proposal]').dataset.proposal, { closesAt: new Date(Date.now() + 7 * 86400000).toISOString(), quorumPercent: 30, approvalPercent: 60 }); await loadApplicationData(); } catch (error) { loadError = error.message; render(); } }
   if (action === 'project-from-proposal') { try { await createProjectFromProposal(session.token, event.target.closest('[data-proposal]').dataset.proposal, {}); await loadApplicationData(); } catch (error) { loadError = error.message; render(); } }
   if (action === 'submit-request') {
-    try { const issue = await createIssue(session.token, { title: document.querySelector('#issue-title')?.value, address: document.querySelector('#issue-address')?.value, description: document.querySelector('#issue-description')?.value }); issueData.unshift(normalizedIssues([issue])[0]); modal = null; active = 'Заявки'; }
+    try { const issue = await createIssue(session.token, { title: document.querySelector('#issue-title')?.value, address: document.querySelector('#issue-address')?.value, description: document.querySelector('#issue-description')?.value, beforePhotoUrl: document.querySelector('#issue-before-photo')?.value }); issueData.unshift(normalizedIssues([issue])[0]); modal = null; active = 'Заявки'; }
     catch (error) { loadError = error.message; modal = null; }
     render();
+  }
+  if (action === 'submit-street') {
+    try { await createStreet(session.token, { name: document.querySelector('#street-name').value, roadCondition: document.querySelector('#street-road').value, lightingCoverage: Number(document.querySelector('#street-lighting').value), note: document.querySelector('#street-note').value }); modal = null; active = 'Улицы и участки'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'submit-property') {
+    try { await createProperty(session.token, { streetId: document.querySelector('#property-street').value, number: document.querySelector('#property-number').value }); modal = null; active = 'Улицы и участки'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
+  }
+  if (action === 'claim-property') {
+    try { await requestPropertyAccess(session.token, event.target.closest('[data-property-id]').dataset.propertyId, 'Прошу подтвердить мой участок'); active = 'Улицы и участки'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; render(); }
+  }
+  if (action === 'review-property') {
+    const target = event.target.closest('[data-request-id]');
+    try { await reviewPropertyAccess(session.token, target.dataset.requestId, target.dataset.decision); active = 'Улицы и участки'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; render(); }
+  }
+  if (action === 'submit-issue-update') {
+    try { await updateIssue(session.token, event.target.closest('[data-issue-id]').dataset.issueId, { status: document.querySelector('#issue-status').value, responsible: document.querySelector('#issue-responsible').value, dueAt: document.querySelector('#issue-due').value || null, comment: document.querySelector('#issue-comment').value, resultNote: document.querySelector('#issue-result').value, afterPhotoUrl: document.querySelector('#issue-after-photo').value }); modal = null; active = 'Управление'; await loadApplicationData(); }
+    catch (error) { loadError = error.message; modal = null; render(); }
   }
   if (action === 'submit-listing') {
     try { const listing = await createListing(session.token, { type: document.querySelector('#listing-type')?.value, title: document.querySelector('#listing-title')?.value, category: document.querySelector('#listing-category')?.value, description: document.querySelector('#listing-description')?.value }); listingData.unshift(listing); modal = null; active = 'Соседи'; }

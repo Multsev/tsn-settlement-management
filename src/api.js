@@ -20,6 +20,13 @@ export const loadDashboard = (token, options) => request('/dashboard', { token, 
 export const loadProjects = (token, options) => request('/projects', { token, ...options });
 export const loadIssues = (token, options) => request('/issues', { token, ...options });
 export const createIssue = (token, issue, options) => request('/issues', { token, method: 'POST', body: issue, ...options });
+export const updateIssue = (token, issueId, issue, options) => request(`/issues/${issueId}`, { token, method: 'PATCH', body: issue, ...options });
+export const loadStreets = (token, options) => request('/streets', { token, ...options });
+export const createStreet = (token, street, options) => request('/streets', { token, method: 'POST', body: street, ...options });
+export const loadProperties = (token, options) => request('/properties', { token, ...options });
+export const createProperty = (token, property, options) => request('/properties', { token, method: 'POST', body: property, ...options });
+export const requestPropertyAccess = (token, propertyId, note, options) => request(`/properties/${propertyId}/access-requests`, { token, method: 'POST', body: { note }, ...options });
+export const reviewPropertyAccess = (token, requestId, status, options) => request(`/properties/access-requests/${requestId}`, { token, method: 'PATCH', body: { status }, ...options });
 export const loadDirectory = (token, options) => request('/directory', { token, ...options });
 export const loadListings = (token, options) => request('/listings', { token, ...options });
 export const createListing = (token, listing, options) => request('/listings', { token, method: 'POST', body: listing, ...options });
