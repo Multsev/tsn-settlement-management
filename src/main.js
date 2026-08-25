@@ -1,6 +1,6 @@
 import './styles.css';
 import { dashboard, issues, money, projects } from './data.js';
-import { acceptInvitation, addProjectUpdate, contributeToFundraiser, createAnnouncement, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createManagementReport, createMapFeature, createProjectFromProposal, createProjectTask, createProperty, createStreet, createSurvey, generateDigest, inviteMember, linkContractorProject, loadAccountCommunities, loadAnnouncements, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDigests, loadDirectory, loadDocuments, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadManagementDashboard, loadManagementReports, loadMap, loadMembers, loadMyFinances, loadNotificationPreferences, loadNotifications, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, loadSurveys, login, openVote, publishDigest, readAllNotifications, readNotification, recordPayment, requestPropertyAccess, respondToSurvey, reviewPropertyAccess, switchCommunity, updateContractor, updateDecision, updateIssue, updateMapLocation, updateMemberAccess, updateNotificationPreferences, updateProject, updateProjectTask, updateSurveyStatus } from './api.js';
+import { acceptInvitation, addProjectUpdate, contributeToFundraiser, createAnnouncement, createCharge, createContractor, createDecision, createDocument, createExpense, createFundraiser, createIssue, createListing, createManagementReport, createMapFeature, createProjectFromProposal, createProjectTask, createProperty, createStreet, createSurvey, generateDigest, inviteMember, linkContractorProject, loadAccountCommunities, loadAnnouncements, loadAuditLog, loadCommunityInfo, loadContractors, loadDashboard, loadDecisions, loadDigests, loadDirectory, loadDocuments, loadFinanceAdminOptions, loadFinanceOverview, loadIssues, loadListings, loadManagementDashboard, loadManagementReports, loadMap, loadMembers, loadMyFinances, loadNotificationPreferences, loadNotifications, loadProjectAttention, loadProjects, loadProperties, loadProposals, loadRoadmap, loadStreets, loadSurveys, login, openVote, publishDigest, readAllNotifications, readNotification, recordPayment, requestPropertyAccess, respondToSurvey, reviewPropertyAccess, searchCommunity, switchCommunity, updateContractor, updateDecision, updateIssue, updateMapLocation, updateMemberAccess, updateNotificationPreferences, updateProject, updateProjectTask, updateSurveyStatus } from './api.js';
 import { clearSession, readSession, saveSession } from './session.js';
 import { financeAdminContent, financeResidentContent } from './finance-views.js';
 import { issueManagementContent, streetsContent } from './community-operations-views.js';
@@ -11,13 +11,14 @@ import { invitationAcceptanceView, memberModal, membersContent } from './member-
 import { mapContent, mapModal } from './map-views.js';
 import { surveyModal, surveysContent } from './survey-views.js';
 import { managementDashboardContent, managementReportModal } from './management-dashboard-views.js';
+import { auditContent, searchContent } from './search-audit-views.js';
 
 const icon = (name) => ({
   home: '⌂', projects: '◫', finance: '₽', requests: '◌', docs: '▤', more: '•••', bell: '♧', arrow: '→', close: '×', plus: '+'
 }[name] || '•');
 
 const navigation = [
-  ['home', 'Главная'], ['projects', 'Проекты'], ['more', 'Дорожная карта'], ['more', 'Карта'], ['more', 'Опросы'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['bell', 'Объявления'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Подрядчики'], ['more', 'Соседи'], ['more', 'О поселке']
+  ['home', 'Главная'], ['more', 'Поиск'], ['projects', 'Проекты'], ['more', 'Дорожная карта'], ['more', 'Карта'], ['more', 'Опросы'], ['finance', 'Финансы'], ['requests', 'Заявки'], ['bell', 'Объявления'], ['more', 'Улицы и участки'], ['docs', 'Документы'], ['more', 'Подрядчики'], ['more', 'Соседи'], ['more', 'О поселке']
 ];
 
 let active = 'Главная';
@@ -54,6 +55,8 @@ let selectedMapItem = '';
 let surveyData = [];
 let managementDashboardData = { attention: { newIssues: 0, staleProjects: 0, overdueTasks: 0 }, finances: { collectionRate: 0, balance: 0, debt: 0, reserved: 0 }, projects: { active: 0, overdue: 0, completedThisMonth: 0 }, issues: { open: 0, unassigned: 0 }, topics: [], risks: [] };
 let managementReportData = [];
+let searchState = { query: '', results: [], searched: false };
+let auditData = [];
 const invitationToken = new URLSearchParams(location.search).get('invite');
 let expenseFilter = '';
 const managesCommunity = () => ['chairman', 'administrator'].includes(session?.role);
@@ -78,7 +81,7 @@ async function loadApplicationData() {
   if (!session) return;
   loading = true; loadError = ''; render();
   try {
-    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention, serverDecisions, serverDocuments, serverContractors, serverAnnouncements, serverDigests, serverNotifications, serverNotificationPreferences, serverMembers, serverCommunities, serverMap, serverSurveys, serverManagement, serverReports] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([]), loadDecisions(session.token), loadDocuments(session.token), loadContractors(session.token), loadAnnouncements(session.token, managesCommunity()), loadDigests(session.token), loadNotifications(session.token), loadNotificationPreferences(session.token), managesCommunity() ? loadMembers(session.token) : Promise.resolve(memberRegistry), loadAccountCommunities(session.token), loadMap(session.token), loadSurveys(session.token), managesGovernance() ? loadManagementDashboard(session.token) : Promise.resolve(managementDashboardData), managesGovernance() ? loadManagementReports(session.token) : Promise.resolve([])]);
+    const [serverDashboard, serverProjects, serverIssues, serverDirectory, serverListings, serverInfo, serverProposals, serverMyFinances, serverFinanceOverview, serverFinanceOptions, serverStreets, serverProperties, serverRoadmap, serverProjectAttention, serverDecisions, serverDocuments, serverContractors, serverAnnouncements, serverDigests, serverNotifications, serverNotificationPreferences, serverMembers, serverCommunities, serverMap, serverSurveys, serverManagement, serverReports, serverAudit] = await Promise.all([loadDashboard(session.token), loadProjects(session.token), loadIssues(session.token), loadDirectory(session.token), loadListings(session.token), loadCommunityInfo(session.token), loadProposals(session.token), loadMyFinances(session.token), loadFinanceOverview(session.token), managesCommunity() ? loadFinanceAdminOptions(session.token) : Promise.resolve(financeOptions), loadStreets(session.token), loadProperties(session.token), loadRoadmap(session.token), worksWithProjects() ? loadProjectAttention(session.token) : Promise.resolve([]), loadDecisions(session.token), loadDocuments(session.token), loadContractors(session.token), loadAnnouncements(session.token, managesCommunity()), loadDigests(session.token), loadNotifications(session.token), loadNotificationPreferences(session.token), managesCommunity() ? loadMembers(session.token) : Promise.resolve(memberRegistry), loadAccountCommunities(session.token), loadMap(session.token), loadSurveys(session.token), managesGovernance() ? loadManagementDashboard(session.token) : Promise.resolve(managementDashboardData), managesGovernance() ? loadManagementReports(session.token) : Promise.resolve([]), managesGovernance() ? loadAuditLog(session.token) : Promise.resolve([])]);
     dashboardData = { ...dashboard, community: serverDashboard.community, user: currentUser.fullName.split(' ')[0], balance: serverDashboard.finances.balance, income: serverDashboard.finances.received, spent: serverDashboard.finances.spent, debt: serverDashboard.myDebt, projects: normalizedProjects(serverDashboard.projects), announcements: serverDashboard.announcements, unreadNotifications: serverDashboard.unreadNotifications, latestDigest: serverDashboard.latestDigest };
     projectData = normalizedProjects(serverProjects);
     issueData = normalizedIssues(serverIssues);
@@ -106,6 +109,7 @@ async function loadApplicationData() {
     surveyData = serverSurveys;
     managementDashboardData = serverManagement;
     managementReportData = serverReports;
+    auditData = serverAudit;
   } catch (error) {
     if (error.status === 401 || error.status === 403) { clearSession(); session = null; currentUser = null; loadError = 'Сессия завершена. Войдите снова.'; }
     else loadError = error.message;
@@ -117,7 +121,7 @@ function layout(content) {
     <aside class="sidebar">
       <a class="brand" href="#"><span class="brand-mark">⌁</span><span>прозор</span></a>
       <div class="community-switch"><span class="community-dot"></span><div><small>Мой поселок</small>${accountCommunities.length > 1 ? `<select data-community-switch>${accountCommunities.map(item => `<option value="${item.community.id}" ${item.current ? 'selected' : ''}>${item.community.name}</option>`).join('')}</select>` : `<strong>${dashboardData.community}</strong>`}</div><span>⌄</span></div>
-      <nav>${[...navigation, ...(managesGovernance() ? [['more', 'Управление']] : []), ...(managesCommunity() ? [['more', 'Пользователи']] : [])].map(([key, label]) => `<button class="nav-item ${active === label ? 'active' : ''}" data-view="${label}"><span>${icon(key)}</span>${label}</button>`).join('')}</nav>
+      <nav>${[...navigation, ...(managesGovernance() ? [['more', 'Управление'], ['more', 'История']] : []), ...(managesCommunity() ? [['more', 'Пользователи']] : [])].map(([key, label]) => `<button class="nav-item ${active === label ? 'active' : ''}" data-view="${label}"><span>${icon(key)}</span>${label}</button>`).join('')}</nav>
       <div class="side-bottom"><button class="nav-item"><span>?</span> Помощь</button><button class="profile profile-button" data-action="logout"><span class="avatar">${currentUser?.fullName?.split(' ').map(word => word[0]).join('').slice(0, 2) || 'АС'}</span><div><strong>${currentUser?.fullName || 'Александр С.'}</strong><small>Выйти из аккаунта</small></div><span>⌄</span></button></div>
     </aside>
     <main class="content">${content}</main>
@@ -180,6 +184,9 @@ function settlementMapView() {
 function surveysView() {
   return layout(surveysContent({ surveys: surveyData, canManage: managesGovernance(), card }));
 }
+
+function searchView() { return layout(searchContent({ searchState, card })); }
+function auditView() { return layout(auditContent({ entries: auditData, card })); }
 
 function requestsView() {
  return layout(`<header class="topbar"><div><p class="eyebrow">Обращения жителей</p><h1>${managesCommunity() ? 'Все обращения' : 'Мои заявки'}</h1></div><button class="primary" data-action="request">${icon('plus')} Новая заявка</button></header><p class="view-lead">Сообщите о проблеме — мы назначим ответственного и покажем статус работ.</p><div class="request-list">${issueData.length ? issueData.map(i => card(`<article class="issue-detail"><div class="request-card"><div class="request-id">${i.id}</div><div><h2>${i.title}</h2><p>${i.address}</p><div class="project-meta"><span>◉ ${i.responsible}</span><span>◷ Срок: ${i.due}</span></div></div><span class="badge orange">${i.status}</span>${managesCommunity() ? `<button class="small-button" data-action="manage-issue" data-issue-id="${i.databaseId}">Управлять</button>` : ''}</div>${i.description ? `<p>${i.description}</p>` : ''}${i.resultNote ? `<div class="result-note"><strong>Результат</strong><p>${i.resultNote}</p></div>` : ''}<div class="issue-history">${(i.history || []).map(item => `<span>${issueStatus[item.toStatus] || item.toStatus}<small>${new Date(item.createdAt).toLocaleDateString('ru-RU')}</small></span>`).join('')}</div>${i.beforePhotoUrl || i.afterPhotoUrl ? `<div class="issue-photos">${i.beforePhotoUrl ? `<a href="${i.beforePhotoUrl}" target="_blank" rel="noreferrer">Фото до</a>` : ''}${i.afterPhotoUrl ? `<a href="${i.afterPhotoUrl}" target="_blank" rel="noreferrer">Фото после</a>` : ''}</div>` : ''}</article>`)).join('') : card('<p>Обращений пока нет.</p>')}</div>`);
@@ -261,7 +268,7 @@ function loginView() {
 function render() {
   if (invitationToken && !session) { document.querySelector('#app').innerHTML = invitationAcceptanceView(invitationToken); return; }
   if (!session) { document.querySelector('#app').innerHTML = loginView(); return; }
-  const views = { 'Главная': dashboardView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Карта': settlementMapView, 'Опросы': surveysView, 'Финансы': financeView, 'Заявки': requestsView, 'Объявления': communicationsView, 'Уведомления': notificationsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Подрядчики': contractorsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView, 'Пользователи': membersView };
+  const views = { 'Главная': dashboardView, 'Поиск': searchView, 'История': auditView, 'Проекты': projectsView, 'Дорожная карта': roadmapView, 'Карта': settlementMapView, 'Опросы': surveysView, 'Финансы': financeView, 'Заявки': requestsView, 'Объявления': communicationsView, 'Уведомления': notificationsView, 'Улицы и участки': streetsView, 'Документы': docsView, 'Подрядчики': contractorsView, 'Соседи': neighborsView, 'О поселке': aboutView, 'Управление': managementView, 'Пользователи': membersView };
   document.querySelector('#app').innerHTML = loading ? layout('<div class="page-state">Загружаем данные поселка…</div>') : loadError ? layout(`<div class="page-state error-state">${loadError}<button class="primary" data-action="reload">Повторить</button></div>`) : views[active]();
 }
 
@@ -460,6 +467,13 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('submit', async event => {
+  if (event.target.id === 'global-search-form') {
+    event.preventDefault();
+    const query = new FormData(event.target).get('query');
+    try { const result = await searchCommunity(session.token, query); searchState = { query: result.query, results: result.results, searched: true }; active = 'Поиск'; render(); }
+    catch (error) { loadError = error.message; render(); }
+    return;
+  }
   if (event.target.id === 'invitation-form') {
     event.preventDefault();
     try { const result = await acceptInvitation(Object.fromEntries(new FormData(event.target))); session = { token: result.token, user: result.user, community: result.community, role: result.role, membershipId: result.membershipId }; currentUser = result.user; saveSession(session); history.replaceState({}, '', location.pathname); await loadApplicationData(); }

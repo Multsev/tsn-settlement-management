@@ -857,4 +857,7 @@ model AuditLog {
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   actor       User?     @relation("AuditActor", fields: [actorId], references: [id])
   createdAt   DateTime  @default(now())
+
+  @@index([communityId, createdAt])
+  @@index([communityId, entityType, entityId])
 }

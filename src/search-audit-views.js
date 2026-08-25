@@ -1,0 +1,11 @@
+const typeLabels = { PROJECT: 'Проект', DECISION: 'Решение', DOCUMENT: 'Документ', STREET: 'Улица', ISSUE: 'Обращение', EXPENSE: 'Расход' };
+const typeViews = { PROJECT: 'Проекты', DECISION: 'Документы', DOCUMENT: 'Документы', STREET: 'Улицы и участки', ISSUE: 'Заявки', EXPENSE: 'Финансы' };
+const actionLabels = { created: 'создал', updated: 'изменил', recorded: 'зарегистрировал', published: 'опубликовал', generated: 'сформировал', access_updated: 'изменил доступ', responded: 'ответил' };
+
+export function searchContent({ searchState, card }) {
+  return `<header class="topbar"><div><p class="eyebrow">Все данные поселка в одном месте</p><h1>Поиск</h1></div></header><form id="global-search-form" class="global-search"><input name="query" value="${searchState.query}" placeholder="Проект, улица, решение, документ, заявка или расход" /><button class="primary">Найти</button></form>${searchState.searched ? `<p class="view-lead">Найдено: ${searchState.results.length}</p><div class="request-list">${searchState.results.map(item => card(`<article class="search-result"><span class="badge green">${typeLabels[item.type]}</span><div><h2>${item.title || item.name || item.description}</h2><p>${item.description || item.note || item.address || item.recipient || ''}</p></div><button class="round-arrow" data-view="${typeViews[item.type]}">→</button></article>`)).join('') || card('<p>Совпадений не найдено.</p>')}</div>` : card('<p>Введите, например, «Калинина», чтобы получить связанные проекты, улицы, обращения, документы и расходы.</p>')}`;
+}
+
+export function auditContent({ entries, card }) {
+  return `<header class="topbar"><div><p class="eyebrow">Кто, что и когда изменил</p><h1>История действий</h1></div></header><div class="request-list">${entries.map(entry => card(`<article class="audit-row"><div class="audit-time"><strong>${new Date(entry.createdAt).toLocaleDateString('ru-RU')}</strong><span>${new Date(entry.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span></div><div><h3>${entry.actor?.fullName || 'Система'} ${actionLabels[entry.action] || entry.action}</h3><p>${entry.entityType} · ${entry.entityId}</p><details><summary>Изменения</summary><pre>${JSON.stringify({ before: entry.before, after: entry.after }, null, 2)}</pre></details></div></article>`)).join('') || card('<p>Журнал пока пуст.</p>')}</div>`;
+}

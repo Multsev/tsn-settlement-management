@@ -83,3 +83,5 @@ export const respondToSurvey = (token, surveyId, optionId, options) => request(`
 export const loadManagementDashboard = (token, options) => request('/management-dashboard', { token, ...options });
 export const loadManagementReports = (token, options) => request('/management-dashboard/reports', { token, ...options });
 export const createManagementReport = (token, data, options) => request('/management-dashboard/reports', { token, method: 'POST', body: data, ...options });
+export const searchCommunity = (token, query, options) => request(`/search?q=${encodeURIComponent(query)}`, { token, ...options });
+export const loadAuditLog = (token, filters = {}, options) => { const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value)).toString(); return request(`/audit-log${query ? `?${query}` : ''}`, { token, ...options }); };
