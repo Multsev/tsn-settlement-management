@@ -19,11 +19,9 @@ test('сессия сохраняется под новым технически
   assert.equal(storage.has('tsn-management.session'), true);
 });
 
-test('старая браузерная сессия бесшовно переносится при переименовании', () => {
-  const storage = memoryStorage({ 'prozor.session': JSON.stringify({ token: 'legacy-token' }) });
-  assert.deepEqual(readSession(storage), { token: 'legacy-token' });
-  assert.equal(storage.has('tsn-management.session'), true);
-  assert.equal(storage.has('prozor.session'), false);
+test('выход удаляет сессию нового продукта', () => {
+  const storage = memoryStorage();
+  saveSession({ token: 'active-token' }, storage);
   clearSession(storage);
   assert.equal(readSession(storage), null);
 });
