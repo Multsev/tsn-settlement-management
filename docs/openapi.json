@@ -1,6 +1,6 @@
 {
   "openapi": "3.1.0",
-  "info": { "title": "Прозор API", "version": "0.22.0", "description": "REST API платформы управления поселком. Защищенные маршруты требуют Bearer JWT выбранного поселка." },
+  "info": { "title": "ТСН: Управление посёлком API", "version": "0.22.0", "description": "REST API платформы управления поселком. Защищенные маршруты требуют Bearer JWT выбранного поселка." },
   "servers": [{ "url": "/api" }],
   "components": {
     "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" } },

@@ -5,7 +5,7 @@ export function initializePwa() {
   let installEvent;
   const button = document.createElement('button');
   button.className = 'pwa-install';
-  button.textContent = 'Установить Прозор';
+  button.textContent = 'Установить «ТСН: Управление посёлком»';
   button.hidden = true;
   button.addEventListener('click', async () => {
     if (!installEvent) return;

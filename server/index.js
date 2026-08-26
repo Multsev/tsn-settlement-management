@@ -4,7 +4,7 @@ import { startBackgroundJobs } from './background-jobs.js';
 
 assertProductionConfig();
 const stopJobs = startBackgroundJobs();
-const server = app.listen(config.port, () => console.log(`Prozor is listening on http://localhost:${config.port}`));
+const server = app.listen(config.port, () => console.log(`ТСН: Управление посёлком is listening on http://localhost:${config.port}`));
 
 function shutdown(signal) {
   console.log(`${signal}: graceful shutdown started`);

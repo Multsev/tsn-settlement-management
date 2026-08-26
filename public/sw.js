@@ -1,4 +1,4 @@
-const CACHE = 'prozor-shell-v1';
+const CACHE = 'tsn-management-shell-v1';
 const SHELL = ['/', '/offline.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-maskable.svg'];
 
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())));

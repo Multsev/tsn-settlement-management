@@ -1,16 +1,18 @@
+name: tsn-management
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: prozor
-      POSTGRES_USER: prozor
-      POSTGRES_PASSWORD: prozor
+      POSTGRES_DB: tsn_management
+      POSTGRES_USER: tsn_app
+      POSTGRES_PASSWORD: tsn_local
     ports:
       - '5432:5432'
     volumes:
-      - prozor-postgres:/var/lib/postgresql/data
+      - tsn-management-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U prozor -d prozor']
+      test: ['CMD-SHELL', 'pg_isready -U tsn_app -d tsn_management']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,7 +22,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://prozor:prozor@postgres:5432/prozor?schema=public
+      DATABASE_URL: postgresql://tsn_app:tsn_local@postgres:5432/tsn_management?schema=public
       JWT_SECRET: ${JWT_SECRET:-development-only-secret-change-me}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       STORAGE_PROVIDER: local
@@ -29,12 +31,14 @@ services:
     ports:
       - '3000:3000'
     volumes:
-      - prozor-files:/app/storage/uploads
+      - tsn-management-files:/app/storage/uploads
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  prozor-postgres:
-  prozor-files:
+  tsn-management-postgres:
+    name: tsn-management-postgres
+  tsn-management-files:
+    name: tsn-management-files

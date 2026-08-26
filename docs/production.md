@@ -1,4 +1,4 @@
-# Production-запуск Прозора
+# Production-запуск «ТСН: Управление посёлком»
 
 ## Перед запуском
 
@@ -6,7 +6,7 @@
 
 ```bash
 export JWT_SECRET="$(openssl rand -base64 48)"
-export WEB_ORIGIN="https://prozor.example.ru"
+export WEB_ORIGIN="https://tsn.example.ru"
 docker compose --profile production up -d --build
 curl --fail http://localhost:3000/api/ready
 ```
@@ -32,7 +32,7 @@ DATABASE_URL="postgresql://..." BACKUP_DIR=/secure/backups npm run backup
 Восстановление намеренно требует явного подтверждения и выполняется сначала на тестовом окружении:
 
 ```bash
-DATABASE_URL="postgresql://..." BACKUP_FILE=/secure/backups/prozor.dump CONFIRM_RESTORE=1 npm run restore
+DATABASE_URL="postgresql://..." BACKUP_FILE=/secure/backups/tsn-management.dump CONFIRM_RESTORE=1 npm run restore
 ```
 
 Рекомендуемый режим: ежедневный дамп, 14 дневных и 6 месячных копий, шифрование вне сервера приложения, ежемесячная проверка восстановления. Перед обновлением создайте дамп, затем разверните новый тег; откат приложения выполняйте на предыдущий образ только после проверки совместимости примененных миграций.

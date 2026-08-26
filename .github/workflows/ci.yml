@@ -27,4 +27,4 @@ jobs:
       - name: Проверить production-зависимости
         run: npm audit --omit=dev
       - name: Собрать production-образ
-        run: docker build -t prozor:test .
+        run: docker build -t tsn-management:test .

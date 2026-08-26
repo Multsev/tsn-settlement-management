@@ -28,11 +28,11 @@ jobs:
       - name: Проверить production-зависимости
         run: npm audit --omit=dev
       - name: Собрать production-образ
-        run: docker build -t prozor:${{ github.ref_name }} .
+        run: docker build -t tsn-management:${{ github.ref_name }} .
       - name: Сверить версию тега с package.json
         run: |
           test "v$(node -p \"require('./package.json').version\")" = "$GITHUB_REF_NAME"
       - name: Создать GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --title "Прозор $GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --title "ТСН: Управление посёлком $GITHUB_REF_NAME"

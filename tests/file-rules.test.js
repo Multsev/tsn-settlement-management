@@ -24,6 +24,6 @@ test('загрузка ограничена форматом и размером
   assert.equal(validateUpload({ mimetype: 'application/pdf', size: 1024 }), '');
   assert.match(validateUpload({ mimetype: 'application/x-sh', size: 10 }), /формат/);
   assert.match(validateUpload({ mimetype: 'application/pdf', size: MAX_FILE_SIZE + 1 }), /15 МБ/);
-  assert.equal(checksum(Buffer.from('prozor')), 'a6eb3ef12eacb494ab45d4ffbec34f3369e1761dff8b641c8e7f4c242b45e44f');
+  assert.equal(checksum(Buffer.from('tsn-management')), 'f4e38cd818729c35fafb22b302b47fabe976cabf61a2d14217147dccae3bc7e1');
   assert.match(createStorageKey('community-1', 'Смета.PDF'), /^community-1\/\d{4}-\d{2}-\d{2}\/[a-f0-9-]+\.pdf$/);
 });
