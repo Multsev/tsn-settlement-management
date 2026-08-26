@@ -232,6 +232,8 @@ JWT_SECRET="$(openssl rand -base64 48)" docker compose --profile production up -
 - `Dockerfile` и production-профиль Compose — воспроизводимый production-запуск.
 - `public/manifest.webmanifest`, `public/sw.js` и `public/offline.html` — устанавливаемая PWA-оболочка.
 - `docs/production.md` — эксплуатация, безопасность, резервное копирование и восстановление.
+- `docs/acceptance-testing-program.md` — редактируемый источник независимой программы приёмосдаточных испытаний.
+- `docs/acceptance-testing-program.docx` — оформленная версия программы для испытательной комиссии.
 - `tests/` — быстрые проверки доменных данных.
 - `.github/workflows/` — CI при изменении `main` и публикация GitHub Release при push тега.
 - `scripts/release-guide.md` — правила версий и точные команды релиза.
