@@ -10,6 +10,8 @@ const requiredFiles = [
   '.github/workflows/ci.yml',
   '.github/workflows/release.yml',
   'CONTRIBUTING.md',
+  'LICENSE',
+  'NOTICE',
   'SECURITY.md',
   'docs/github-publication.md'
 ];
@@ -20,7 +22,11 @@ const gitignore = await readFile('.gitignore', 'utf8');
 const dockerignore = await readFile('.dockerignore', 'utf8');
 
 assert.equal(packageJson.private, true, 'Package must not be accidentally published to npm.');
+assert.equal(packageJson.author, 'Мульцев Максим Александрович');
+assert.equal(packageJson.license, 'Apache-2.0');
 assert.match(packageJson.engines?.node || '', /^>=22/, 'Node.js 22+ must be declared.');
+assert.match(contents.LICENSE, /^\s*Apache License\s+Version 2\.0, January 2004/);
+assert.match(contents.NOTICE, /Copyright 2026 Мульцев Максим Александрович/);
 assert.match(gitignore, /^\.env\*$/m, 'All local environment files must be ignored.');
 assert.match(gitignore, /^!\.env\.example$/m, 'The safe environment example must remain tracked.');
 assert.match(dockerignore, /^\.env\*$/m, 'Environment files must be excluded from Docker build context.');
