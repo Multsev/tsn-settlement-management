@@ -13,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Получить код
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Настроить Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -30,8 +30,11 @@ jobs:
       - name: Собрать production-образ
         run: docker build -t tsn-management:${{ github.ref_name }} .
       - name: Сверить версию тега с package.json
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          test "v$(node -p \"require('./package.json').version\")" = "$GITHUB_REF_NAME"
+          PACKAGE_VERSION="$(node --print "require('./package.json').version")"
+          test "v${PACKAGE_VERSION}" = "${RELEASE_TAG}"
       - name: Создать GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
