@@ -1,6 +1,6 @@
 {
   "name": "tsn-settlement-management",
-  "version": "0.22.6",
+  "version": "0.22.7",
   "private": true,
   "packageManager": "npm@10.9.2",
   "engines": {
