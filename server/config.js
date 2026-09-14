@@ -23,9 +23,18 @@ export const config = {
   trustProxy: process.env.TRUST_PROXY === 'true'
 };
 
+const rejectedProductionSecrets = [
+  'development-only-secret-change-me',
+  'replace-with-a-long-random-secret-before-production'
+];
+
+export function isProductionJwtSecretValid(secret) {
+  return typeof secret === 'string' && secret.length >= 32 && !rejectedProductionSecrets.includes(secret);
+}
+
 export function assertProductionConfig() {
-  if (process.env.NODE_ENV === 'production' && config.jwtSecret === 'development-only-secret-change-me') {
-    throw new Error('JWT_SECRET must be set in production.');
+  if (process.env.NODE_ENV === 'production' && !isProductionJwtSecretValid(config.jwtSecret)) {
+    throw new Error('JWT_SECRET must be a non-template secret of at least 32 characters in production.');
   }
   if (!['local', 's3'].includes(config.storageProvider)) throw new Error('STORAGE_PROVIDER must be local or s3.');
   if (config.storageProvider === 's3' && (!config.s3Bucket || !config.s3AccessKeyId || !config.s3SecretAccessKey)) throw new Error('S3 storage credentials and bucket must be configured.');

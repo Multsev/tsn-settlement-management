@@ -1,7 +1,9 @@
 node_modules
 dist
+coverage
 .git
 .github
-.env
+.env*
 storage/uploads
 npm-debug.log
+*.log

@@ -2,15 +2,20 @@
   "name": "tsn-settlement-management",
   "version": "0.22.6",
   "private": true,
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:api": "node --watch server/index.js",
     "build": "vite build",
     "test": "node --test",
-    "verify": "npm test && npm run build && npm run verify:database && npm run verify:production",
+    "verify": "npm test && npm run build && npm run verify:database && npm run verify:production && npm run verify:github",
     "verify:database": "DATABASE_URL=postgresql://validation:validation@localhost:5432/validation prisma validate",
     "verify:production": "node scripts/verify-production.mjs",
+    "verify:github": "node scripts/verify-github-readiness.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
@@ -38,7 +43,7 @@
     "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.2.0"
+    "multer": "^2.4.0"
   },
   "overrides": {
     "deepmerge-ts": "^8.0.2"
